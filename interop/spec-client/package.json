@@ -1,0 +1,16 @@
+{
+  "name": "a4a-spec-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Independent specification-based A4A interoperability guard",
+  "scripts": {
+    "test": "node --test agreement.test.js",
+    "deal": "node deal.js",
+    "negative": "node negative.js"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.0.0",
+    "ws": "^8.18.0"
+  }
+}

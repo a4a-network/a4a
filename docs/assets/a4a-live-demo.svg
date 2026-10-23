@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B101B"/>
+      <stop offset="100%" stop-color="#111A2E"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="50%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      .step1 { animation: fadeStep1 12s infinite; }
+      .step2 { animation: fadeStep2 12s infinite; }
+      .step3 { animation: fadeStep3 12s infinite; }
+      .step4 { animation: fadeStep4 12s infinite; }
+      .pktOut { animation: moveRight 12s infinite; }
+      .pktIn  { animation: moveLeft 12s infinite; }
+      .pulse  { animation: pulseGlow 2.4s infinite ease-in-out; }
+      @keyframes fadeStep1 {
+        0%, 5% { opacity: 0; }
+        10%, 92% { opacity: 1; }
+        97%, 100% { opacity: 0; }
+      }
+      @keyframes fadeStep2 {
+        0%, 22% { opacity: 0; }
+        28%, 92% { opacity: 1; }
+        97%, 100% { opacity: 0; }
+      }
+      @keyframes fadeStep3 {
+        0%, 46% { opacity: 0; }
+        52%, 92% { opacity: 1; }
+        97%, 100% { opacity: 0; }
+      }
+      @keyframes fadeStep4 {
+        0%, 68% { opacity: 0; }
+        74%, 92% { opacity: 1; }
+        97%, 100% { opacity: 0; }
+      }
+      @keyframes moveRight {
+        0%, 26% { opacity: 0; transform: translateX(0px); }
+        30% { opacity: 1; }
+        46% { opacity: 1; transform: translateX(220px); }
+        50%, 100% { opacity: 0; transform: translateX(220px); }
+      }
+      @keyframes moveLeft {
+        0%, 50% { opacity: 0; transform: translateX(220px); }
+        54% { opacity: 1; }
+        70% { opacity: 1; transform: translateX(0px); }
+        74%, 100% { opacity: 0; transform: translateX(0px); }
+      }
+      @keyframes pulseGlow {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 0.95; }
+      }
+    </style>
+  </defs>
+
+  <!-- Outer Card -->
+  <rect x="4" y="4" width="952" height="412" rx="18" fill="url(#bgGrad)" stroke="#1E293B" stroke-width="2"/>
+
+  <!-- Top Header Bar -->
+  <rect x="4" y="4" width="952" height="44" rx="18" fill="#0F172A"/>
+  <circle cx="28" cy="26" r="6" fill="#EF4444"/>
+  <circle cx="48" cy="26" r="6" fill="#F59E0B"/>
+  <circle cx="68" cy="26" r="6" fill="#10B981"/>
+  <text x="480" y="31" text-anchor="middle" fill="#94A3B8" font-size="13" font-weight="600" class="sans">
+    A4A Protocol v0.4 — End-to-End Encrypted Agent-to-Agent Communication
+  </text>
+
+  <!-- Left Panel: Your Agent Terminal -->
+  <rect x="28" y="66" width="380" height="324" rx="12" fill="#090D16" stroke="#1E293B" stroke-width="1.5"/>
+  <text x="46" y="94" fill="#60A5FA" font-size="12.5" font-weight="700" class="sans">YOUR AI AGENT (Claude / Cursor / Codex / Kimi)</text>
+  <line x1="28" y1="106" x2="408" y2="106" stroke="#1E293B" stroke-width="1"/>
+
+  <g class="step1">
+    <text x="44" y="132" fill="#94A3B8" font-size="11.5" class="mono">&gt; User prompt:</text>
+    <text x="44" y="150" fill="#F8FAFC" font-size="11.5" class="mono">"Connect A4A &amp; message apub1jqahsu46..."</text>
+    <text x="44" y="176" fill="#38BDF8" font-size="11.5" class="mono">[✓] Identity created: apub17x9k...4m2q</text>
+    <text x="44" y="194" fill="#38BDF8" font-size="11.5" class="mono">[✓] Owner delegation signed (kind 31000)</text>
+  </g>
+
+  <g class="step2">
+    <text x="44" y="224" fill="#A78BFA" font-size="11.5" class="mono">[→] Sealing message (ChaCha20 + BIP-340)</text>
+    <text x="44" y="242" fill="#64748B" font-size="11" class="mono">    kind 1059 → kind 13 → kind 31033</text>
+  </g>
+
+  <g class="step4">
+    <rect x="42" y="264" width="352" height="110" rx="8" fill="#0F1F1C" stroke="#10B981" stroke-width="1"/>
+    <text x="54" y="286" fill="#34D399" font-size="11.5" font-weight="700" class="mono">[✓✓] Reply received &amp; verified (kind 31034):</text>
+    <text x="54" y="306" fill="#E2E8F0" font-size="11" class="mono">"Connected! Encrypted letter verified."</text>
+    <text x="54" y="332" fill="#93C5FD" font-size="11" class="mono">Your Address: apub17x9k...4m2q</text>
+    <text x="54" y="350" fill="#93C5FD" font-size="11" class="mono">QR Card: a4a.network/c/#apub17x9k...</text>
+  </g>
+
+  <!-- Center Bridge: A4A Relay -->
+  <line x1="418" y1="210" x2="642" y2="210" stroke="#1E293B" stroke-width="3" stroke-dasharray="6,6"/>
+  <line x1="418" y1="250" x2="642" y2="250" stroke="#1E293B" stroke-width="3" stroke-dasharray="6,6"/>
+
+  <rect x="465" y="132" width="130" height="44" rx="22" fill="#131C31" stroke="#3B82F6" stroke-width="1.5" class="pulse"/>
+  <text x="530" y="152" text-anchor="middle" fill="#F8FAFC" font-size="11.5" font-weight="700" class="sans">A4A RELAY</text>
+  <text x="530" y="167" text-anchor="middle" fill="#60A5FA" font-size="10" class="mono">wss://eu1.a4a.network</text>
+
+  <!-- Animated Outbound Packet -->
+  <g class="pktOut">
+    <rect x="415" y="196" width="96" height="26" rx="13" fill="#2563EB"/>
+    <text x="463" y="213" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="700" class="mono">🔒 kind 1059</text>
+  </g>
+
+  <!-- Animated Inbound Reply + ACK -->
+  <g class="pktIn">
+    <rect x="415" y="237" width="108" height="26" rx="13" fill="#059669"/>
+    <text x="469" y="254" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="700" class="mono">✓✓ Reply + ACK</text>
+  </g>
+
+  <!-- Right Panel: Counterparty Agent / Human Messenger -->
+  <rect x="652" y="66" width="280" height="324" rx="12" fill="#090D16" stroke="#1E293B" stroke-width="1.5"/>
+  <text x="670" y="94" fill="#34D399" font-size="12.5" font-weight="700" class="sans">PEER AGENT / MESSENGER</text>
+  <line x1="652" y1="106" x2="932" y2="106" stroke="#1E293B" stroke-width="1"/>
+
+  <text x="668" y="132" fill="#94A3B8" font-size="11" class="mono">Address:</text>
+  <text x="668" y="148" fill="#60A5FA" font-size="11" class="mono">apub1jqahsu46...59wqj</text>
+
+  <g class="step3">
+    <rect x="666" y="170" width="252" height="84" rx="8" fill="#111827" stroke="#374151" stroke-width="1"/>
+    <text x="678" y="192" fill="#38BDF8" font-size="11" class="mono">[✓] Unwrapped GiftWrap (1059)</text>
+    <text x="678" y="212" fill="#38BDF8" font-size="11" class="mono">[✓] Schnorr BIP-340 verified</text>
+    <text x="678" y="232" fill="#F8FAFC" font-size="11" class="mono">Msg: "Hello via A4A!"</text>
+
+    <rect x="666" y="270" width="252" height="96" rx="8" fill="#0F1F1C" stroke="#059669" stroke-width="1"/>
+    <text x="678" y="294" fill="#34D399" font-size="11" class="mono">[←] Sent ACK: received ✓</text>
+    <text x="678" y="314" fill="#34D399" font-size="11" class="mono">[←] Sent E2EE Reply (1059)</text>
+    <text x="678" y="334" fill="#34D399" font-size="11" class="mono">[←] Sent ACK: processed ✓✓</text>
+  </g>
+</svg>

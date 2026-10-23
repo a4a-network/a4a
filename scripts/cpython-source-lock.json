@@ -1,0 +1,43 @@
+{
+  "schema": "a4a-cpython-source-lock-v1",
+  "base_reference": "python:3.11-slim@sha256:e41613d42d4891e4930f79523f93f81bbc7632584ec65e36ab055f41a800b41e",
+  "platform": "linux/amd64",
+  "python_version": "3.11.16",
+  "source_archive": "Python-3.11.16.tar.xz",
+  "recipe_archive": "docker-library-python-688a0b86bb44289df16a363e9f41d90514c1a5f9.tar.gz",
+  "recipe_commit": "688a0b86bb44289df16a363e9f41d90514c1a5f9",
+  "recipe_path": "3.11/slim-trixie/Dockerfile",
+  "dockerfile_sha256": "e43d257e7f8585d5c11d3f96e5250ed33c32c55a30e8c62c0c195b8419a30933",
+  "recipe_license_sha256": "0a3ffdfc4f368b76ae1140b5fbe2f2f69ee76ee00a3024e8a09ca9b2e265186f",
+  "debian_build_context": "docker-image://oisupport/staging-amd64:4e1ffbf910330360b626de4fa53b4eeefe86b9a63509820a7ff6677691438a71@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c",
+  "modules": [
+    {
+      "path": "/usr/local/lib/python3.11/lib-dynload/readline.cpython-311-x86_64-linux-gnu.so",
+      "size": 36360,
+      "sha256": "a060a5151f4daadc6d63f644193ac3b521d5cd2c953c955ceb86b41b67f07e7d",
+      "needed": "libreadline.so.8",
+      "source_member": "Modules/readline.c"
+    },
+    {
+      "path": "/usr/local/lib/python3.11/lib-dynload/_gdbm.cpython-311-x86_64-linux-gnu.so",
+      "size": 27856,
+      "sha256": "f86a1400c1c35fa0e132133ea96935e4f4fa6351c44c5b80798643614620c618",
+      "needed": "libgdbm.so.6",
+      "source_member": "Modules/_gdbmmodule.c"
+    }
+  ],
+  "artifacts": [
+    {
+      "filename": "Python-3.11.16.tar.xz",
+      "url": "https://www.python.org/ftp/python/3.11.16/Python-3.11.16.tar.xz",
+      "size": 20328716,
+      "sha256": "91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8"
+    },
+    {
+      "filename": "docker-library-python-688a0b86bb44289df16a363e9f41d90514c1a5f9.tar.gz",
+      "url": "https://codeload.github.com/docker-library/python/tar.gz/688a0b86bb44289df16a363e9f41d90514c1a5f9",
+      "size": 20145,
+      "sha256": "2aa5b326cf5a6ec30df0fcfb5efba7a6b732edf8fb3c2920d5b3d96340c0ec86"
+    }
+  ]
+}

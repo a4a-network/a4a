@@ -1,0 +1,60 @@
+[Unit]
+Description=A4A inbox receiver
+Documentation=https://github.com/a4a-network/a4a
+# Network connectivity is needed at startup, but its absence must not disable the service
+# permanently: the receiver reconnects itself, and Wants (not Requires) does not propagate failure.
+Wants=network-online.target
+After=network-online.target
+# These unit-wide limits apply to automatic and manual starts alike.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+# Dedicated unprivileged user. The receiver holds the agent's private key and decrypted
+# correspondence, so it must not access anything outside its own directory. Create once:
+#   sudo useradd --system --home-dir /var/lib/a4a --create-home --shell /usr/sbin/nologin a4a
+User=a4a
+Group=a4a
+
+# A4A_HOME is the identity directory: identity.json, inbox-policy.json, and the inbox database.
+# A4A_RELAY selects nodes. With comma-separated addresses, the receiver reads from ALL of
+# them; this is the only protection against message loss when one node fails.
+Environment=A4A_HOME=/var/lib/a4a/agent
+Environment=A4A_RELAY=wss://relay.example.org
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/a4a/venv/bin/python -I -X utf8 -m a4a_mcp inbox-watch --forever
+
+# Rate-limited restarts: an endless crash loop caused by bad configuration would flood the
+# log and hide the cause. Try five times in five minutes, then stop with a clear failure that
+# is visible in systemctl status.
+Restart=always
+RestartSec=5
+
+# Privilege restrictions. The receiver needs nothing outside its own directory: no privilege
+# escalation, no writes to the system, and no access to other users' home directories.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/a4a
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+# Permit only the required address families: regular network sockets and loopback.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Memory ceiling: a receiver flooded with spam must not take down the host.
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# Build backends used by the two local wheels in the container builder stages.
+hatchling
+pip==26.2.1
+setuptools==84.0.0
+wheel

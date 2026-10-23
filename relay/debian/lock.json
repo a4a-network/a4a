@@ -1,0 +1,436 @@
+{
+  "architecture": "amd64",
+  "keyring_sha256": "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017",
+  "schema": "a4a-relay-debian-build-lock-v1",
+  "stages": {
+    "builder": {
+      "base_image": "docker.io/library/rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e",
+      "base_inventory": {
+        "path": "builder/base.tsv",
+        "sha256": "95fdaf8edc3ee5eef25194488f0aaf84c0f97a5979617c514925a80157801663",
+        "size": 14870
+      },
+      "packages": [
+        {
+          "file": {
+            "path": "builder/packages/pool/updates/main/liba/libarchive/libarchive13_3.6.2-1+deb12u5_amd64.deb",
+            "sha256": "45419b8c7646c1af12783ae31906ce2da4c465c1a948b01f8f44152d8269f403",
+            "size": 345488
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/updates/main/liba/libarchive/libarchive13_3.6.2-1+deb12u5_amd64.deb",
+            "Package": "libarchive13",
+            "SHA256": "45419b8c7646c1af12783ae31906ce2da4c465c1a948b01f8f44152d8269f403",
+            "Size": "345488",
+            "Version": "3.6.2-1+deb12u5"
+          },
+          "suite": "bookworm-security"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/libj/libjsoncpp/libjsoncpp25_1.9.5-4_amd64.deb",
+            "sha256": "4ab06b9ce67470579be3112bf2b6b314012f93bfff619580b93a902d6b1221c5",
+            "size": 78572
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/libj/libjsoncpp/libjsoncpp25_1.9.5-4_amd64.deb",
+            "Package": "libjsoncpp25",
+            "SHA256": "4ab06b9ce67470579be3112bf2b6b314012f93bfff619580b93a902d6b1221c5",
+            "Size": "78572",
+            "Version": "1.9.5-4"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/r/rhash/librhash0_1.4.3-3_amd64.deb",
+            "sha256": "d9ba48a51fd4734aaaf3a75fd94b6352a02f9eaa88d3bec84cd0b5d3090f9d2a",
+            "size": 134112
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/r/rhash/librhash0_1.4.3-3_amd64.deb",
+            "Package": "librhash0",
+            "SHA256": "d9ba48a51fd4734aaaf3a75fd94b6352a02f9eaa88d3bec84cd0b5d3090f9d2a",
+            "Size": "134112",
+            "Version": "1.4.3-3"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/libu/libuv1/libuv1_1.44.2-1+deb12u1_amd64.deb",
+            "sha256": "204f0e13354b44e6d19317887a53dab6f26696e8d95838db970b81f2a393f7fd",
+            "size": 135616
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/libu/libuv1/libuv1_1.44.2-1+deb12u1_amd64.deb",
+            "Package": "libuv1",
+            "SHA256": "204f0e13354b44e6d19317887a53dab6f26696e8d95838db970b81f2a393f7fd",
+            "Size": "135616",
+            "Version": "1.44.2-1+deb12u1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/c/cmake/cmake-data_3.25.1-1_all.deb",
+            "sha256": "8371f9694da94fd551a3ea653e2e25d99747471ca0b48cc029bf5c792ea590a3",
+            "size": 2026484
+          },
+          "record": {
+            "Architecture": "all",
+            "Filename": "pool/main/c/cmake/cmake-data_3.25.1-1_all.deb",
+            "Package": "cmake-data",
+            "SHA256": "8371f9694da94fd551a3ea653e2e25d99747471ca0b48cc029bf5c792ea590a3",
+            "Size": "2026484",
+            "Version": "3.25.1-1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/c/cmake/cmake_3.25.1-1_amd64.deb",
+            "sha256": "257a11063855f09e48696057fdb1ba2bcf1069502e0302576831dc2fb1571d7f",
+            "size": 8692248
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/c/cmake/cmake_3.25.1-1_amd64.deb",
+            "Package": "cmake",
+            "SHA256": "257a11063855f09e48696057fdb1ba2bcf1069502e0302576831dc2fb1571d7f",
+            "Size": "8692248",
+            "Version": "3.25.1-1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/p/protobuf/libprotobuf32_3.21.12-3+deb12u1_amd64.deb",
+            "sha256": "e9e4e8cf0d2c48e2e3c17308e2093b3856f470b77e0022b7d906fb1b3551f213",
+            "size": 931592
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/p/protobuf/libprotobuf32_3.21.12-3+deb12u1_amd64.deb",
+            "Package": "libprotobuf32",
+            "SHA256": "e9e4e8cf0d2c48e2e3c17308e2093b3856f470b77e0022b7d906fb1b3551f213",
+            "Size": "931592",
+            "Version": "3.21.12-3+deb12u1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/p/protobuf/libprotobuf-lite32_3.21.12-3+deb12u1_amd64.deb",
+            "sha256": "441812aa574e1baa4435a9b62c34a39e0fc4177994ccfb35fab5a03ef6ef1e8d",
+            "size": 261772
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/p/protobuf/libprotobuf-lite32_3.21.12-3+deb12u1_amd64.deb",
+            "Package": "libprotobuf-lite32",
+            "SHA256": "441812aa574e1baa4435a9b62c34a39e0fc4177994ccfb35fab5a03ef6ef1e8d",
+            "Size": "261772",
+            "Version": "3.21.12-3+deb12u1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/p/protobuf/libprotobuf-dev_3.21.12-3+deb12u1_amd64.deb",
+            "sha256": "2f045f82e4ae0bdfce7f18f1f36613b9cd8c570024b8de68668bc255c32a2d88",
+            "size": 1282804
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/p/protobuf/libprotobuf-dev_3.21.12-3+deb12u1_amd64.deb",
+            "Package": "libprotobuf-dev",
+            "SHA256": "2f045f82e4ae0bdfce7f18f1f36613b9cd8c570024b8de68668bc255c32a2d88",
+            "Size": "1282804",
+            "Version": "3.21.12-3+deb12u1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/p/protobuf/libprotoc32_3.21.12-3+deb12u1_amd64.deb",
+            "sha256": "27770048715fdebe3dab2f6603ca6667ac72ab474989226d2f70153522286adf",
+            "size": 830092
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/p/protobuf/libprotoc32_3.21.12-3+deb12u1_amd64.deb",
+            "Package": "libprotoc32",
+            "SHA256": "27770048715fdebe3dab2f6603ca6667ac72ab474989226d2f70153522286adf",
+            "Size": "830092",
+            "Version": "3.21.12-3+deb12u1"
+          },
+          "suite": "bookworm"
+        },
+        {
+          "file": {
+            "path": "builder/packages/pool/main/p/protobuf/protobuf-compiler_3.21.12-3+deb12u1_amd64.deb",
+            "sha256": "698e96f08152490ee576ead6a9116e1239514de66473305473f67ce2b5408e23",
+            "size": 84212
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/p/protobuf/protobuf-compiler_3.21.12-3+deb12u1_amd64.deb",
+            "Package": "protobuf-compiler",
+            "SHA256": "698e96f08152490ee576ead6a9116e1239514de66473305473f67ce2b5408e23",
+            "Size": "84212",
+            "Version": "3.21.12-3+deb12u1"
+          },
+          "suite": "bookworm"
+        }
+      ],
+      "repositories": [
+        {
+          "index": {
+            "path": "builder/bookworm-security/Packages",
+            "sha256": "c029f9bf86909e8a283cfd2f97689264759ecbdd821d93287e685dfb61f8a9de",
+            "size": 2331854
+          },
+          "inrelease": {
+            "path": "builder/bookworm-security/InRelease",
+            "sha256": "1e368420497cd437a35282b0666bdffae1a6cb408547d56fe4f5f9d2fae9a4a5",
+            "size": 34770
+          },
+          "suite": "bookworm-security"
+        },
+        {
+          "index": {
+            "path": "builder/bookworm-updates/Packages",
+            "sha256": "80a1f6ee524222c49f230fc5700d00f946d0a47eb5258180106dd03df126e16a",
+            "size": 32757
+          },
+          "inrelease": {
+            "path": "builder/bookworm-updates/InRelease",
+            "sha256": "a28c13790de1a0ed2c940b6cf6a0bbb75e05f87fb28cb9556da2829386c3ab40",
+            "size": 55403
+          },
+          "suite": "bookworm-updates"
+        },
+        {
+          "index": {
+            "path": "builder/bookworm/Packages",
+            "sha256": "515e692f2c4121c6fcec444ef100cc18f79a991910615f3a88c8b7becfc94d2f",
+            "size": 50060337
+          },
+          "inrelease": {
+            "path": "builder/bookworm/InRelease",
+            "sha256": "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa",
+            "size": 151075
+          },
+          "suite": "bookworm"
+        }
+      ],
+      "resolved_requests": [
+        "libarchive13=3.6.2-1+deb12u5",
+        "libjsoncpp25=1.9.5-4",
+        "librhash0=1.4.3-3",
+        "libuv1=1.44.2-1+deb12u1",
+        "cmake-data=3.25.1-1",
+        "cmake=3.25.1-1",
+        "libprotobuf32=3.21.12-3+deb12u1",
+        "libprotobuf-lite32=3.21.12-3+deb12u1",
+        "libprotobuf-dev=3.21.12-3+deb12u1",
+        "libprotoc32=3.21.12-3+deb12u1",
+        "protobuf-compiler=3.21.12-3+deb12u1"
+      ]
+    },
+    "runtime": {
+      "base_image": "docker.io/library/debian:trixie-slim@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c",
+      "base_inventory": {
+        "path": "runtime/base.tsv",
+        "sha256": "58dd06db35407f428a9cd9562caffaf5c5aa5d30ee9c61c69d816f0258dc7eea",
+        "size": 2245
+      },
+      "packages": [
+        {
+          "file": {
+            "path": "runtime/packages/pool/updates/main/p/pcre2/libpcre2-8-0_10.46-1~deb13u3_amd64.deb",
+            "sha256": "e226f661d918f04daf38cdbc4806b7ed7d6ef95c7eb0ade692fc350e31970040",
+            "size": 299148
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/updates/main/p/pcre2/libpcre2-8-0_10.46-1~deb13u3_amd64.deb",
+            "Package": "libpcre2-8-0",
+            "SHA256": "e226f661d918f04daf38cdbc4806b7ed7d6ef95c7eb0ade692fc350e31970040",
+            "Size": "299148",
+            "Version": "10.46-1~deb13u3"
+          },
+          "suite": "trixie-security"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/updates/main/o/openssl/openssl-provider-legacy_3.5.7-1~deb13u3_amd64.deb",
+            "sha256": "c12e0266c4780749a4702b8959ac979689f4182e18eed85a8a5eb90ed0e16eab",
+            "size": 316452
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/updates/main/o/openssl/openssl-provider-legacy_3.5.7-1~deb13u3_amd64.deb",
+            "Package": "openssl-provider-legacy",
+            "SHA256": "c12e0266c4780749a4702b8959ac979689f4182e18eed85a8a5eb90ed0e16eab",
+            "Size": "316452",
+            "Version": "3.5.7-1~deb13u3"
+          },
+          "suite": "trixie-security"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/updates/main/o/openssl/libssl3t64_3.5.7-1~deb13u3_amd64.deb",
+            "sha256": "ff16bc048bcd7d1b256094450b79c77947d8e76fe2a24bd99b91021d591fa074",
+            "size": 2458176
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/updates/main/o/openssl/libssl3t64_3.5.7-1~deb13u3_amd64.deb",
+            "Package": "libssl3t64",
+            "SHA256": "ff16bc048bcd7d1b256094450b79c77947d8e76fe2a24bd99b91021d591fa074",
+            "Size": "2458176",
+            "Version": "3.5.7-1~deb13u3"
+          },
+          "suite": "trixie-security"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/main/r/readline/readline-common_8.2-6_all.deb",
+            "sha256": "f77e8aa0bf0de618f11cb0b21658a4ed60f177d63b3cf26d7fc3706b6d0eaaa9",
+            "size": 69360
+          },
+          "record": {
+            "Architecture": "all",
+            "Filename": "pool/main/r/readline/readline-common_8.2-6_all.deb",
+            "Package": "readline-common",
+            "SHA256": "f77e8aa0bf0de618f11cb0b21658a4ed60f177d63b3cf26d7fc3706b6d0eaaa9",
+            "Size": "69360",
+            "Version": "8.2-6"
+          },
+          "suite": "trixie"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/updates/main/o/openssl/openssl_3.5.7-1~deb13u3_amd64.deb",
+            "sha256": "43a9cbcf2a8a0e1f0a1c3f5a33ee1f56b269690e7a2129f2b2d0582e789589d7",
+            "size": 1508068
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/updates/main/o/openssl/openssl_3.5.7-1~deb13u3_amd64.deb",
+            "Package": "openssl",
+            "SHA256": "43a9cbcf2a8a0e1f0a1c3f5a33ee1f56b269690e7a2129f2b2d0582e789589d7",
+            "Size": "1508068",
+            "Version": "3.5.7-1~deb13u3"
+          },
+          "suite": "trixie-security"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/main/c/ca-certificates/ca-certificates_20250419_all.deb",
+            "sha256": "ef590f89563aa4b46c8260d49d1cea0fc1b181d19e8df3782694706adf05c184",
+            "size": 161704
+          },
+          "record": {
+            "Architecture": "all",
+            "Filename": "pool/main/c/ca-certificates/ca-certificates_20250419_all.deb",
+            "Package": "ca-certificates",
+            "SHA256": "ef590f89563aa4b46c8260d49d1cea0fc1b181d19e8df3782694706adf05c184",
+            "Size": "161704",
+            "Version": "20250419"
+          },
+          "suite": "trixie"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/main/r/readline/libreadline8t64_8.2-6_amd64.deb",
+            "sha256": "eeadf2b5e755c9f183883feea2d9b5b28560284275d5f54d3e55d0923b1d0967",
+            "size": 168832
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/r/readline/libreadline8t64_8.2-6_amd64.deb",
+            "Package": "libreadline8t64",
+            "SHA256": "eeadf2b5e755c9f183883feea2d9b5b28560284275d5f54d3e55d0923b1d0967",
+            "Size": "168832",
+            "Version": "8.2-6"
+          },
+          "suite": "trixie"
+        },
+        {
+          "file": {
+            "path": "runtime/packages/pool/main/s/sqlite3/sqlite3_3.46.1-7+deb13u2_amd64.deb",
+            "sha256": "877b00bd5ab6a3792fdffebd4aeebe0b8178df3c21f0e06f6a3c5186f7a799d9",
+            "size": 384144
+          },
+          "record": {
+            "Architecture": "amd64",
+            "Filename": "pool/main/s/sqlite3/sqlite3_3.46.1-7+deb13u2_amd64.deb",
+            "Package": "sqlite3",
+            "SHA256": "877b00bd5ab6a3792fdffebd4aeebe0b8178df3c21f0e06f6a3c5186f7a799d9",
+            "Size": "384144",
+            "Version": "3.46.1-7+deb13u2"
+          },
+          "suite": "trixie"
+        }
+      ],
+      "repositories": [
+        {
+          "index": {
+            "path": "runtime/trixie-security/Packages",
+            "sha256": "555d418380a2bb8d524bbd91421282e3ae02bc288eb844cefe5bf899548728da",
+            "size": 1835840
+          },
+          "inrelease": {
+            "path": "runtime/trixie-security/InRelease",
+            "sha256": "dd6212c3419c79350a24419b5d9f522d173ef024fe6716a82da8c44af3acfa97",
+            "size": 43409
+          },
+          "suite": "trixie-security"
+        },
+        {
+          "index": {
+            "path": "runtime/trixie-updates/Packages",
+            "sha256": "a855cb0d5a041e97b7e449de8de7c233ef6207f10c7ba62df6a77a887a461f13",
+            "size": 15274
+          },
+          "inrelease": {
+            "path": "runtime/trixie-updates/InRelease",
+            "sha256": "3f133e315db73a927017f158cf942e478351104765f0913d43c4a402d90e0722",
+            "size": 47340
+          },
+          "suite": "trixie-updates"
+        },
+        {
+          "index": {
+            "path": "runtime/trixie/Packages",
+            "sha256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940",
+            "size": 56620099
+          },
+          "inrelease": {
+            "path": "runtime/trixie/InRelease",
+            "sha256": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+            "size": 140421
+          },
+          "suite": "trixie"
+        }
+      ],
+      "resolved_requests": [
+        "libpcre2-8-0=10.46-1~deb13u3",
+        "openssl-provider-legacy=3.5.7-1~deb13u3",
+        "libssl3t64=3.5.7-1~deb13u3",
+        "readline-common=8.2-6",
+        "openssl=3.5.7-1~deb13u3",
+        "ca-certificates=20250419",
+        "libreadline8t64=8.2-6",
+        "sqlite3=3.46.1-7+deb13u2"
+      ]
+    }
+  }
+}

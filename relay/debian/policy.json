@@ -1,0 +1,7 @@
+{
+  "lock_sha256": "7f19285edb66a89acefe0fcd6236446418f0c5abf1bd1c24ef46cf4681416f83",
+  "observed_at_utc": "2026-10-14T23:09:19.074420+00:00",
+  "parent_lock_sha256": "78dc9d6902910ce07604fe0ce91da2fe3fa16b17174cbce4c44bb96c4cd4713a",
+  "schema": "a4a-debian-refresh-policy-v1",
+  "usable_until_utc": "2026-10-15T23:09:19.074420+00:00"
+}

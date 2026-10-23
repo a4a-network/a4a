@@ -1,0 +1,2 @@
+# Bootstrap the installer before resolving or installing any other dependencies.
+pip==26.2.1

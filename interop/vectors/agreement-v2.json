@@ -1,0 +1,174 @@
+{
+  "format": "a4a-agreement-v2-vectors-1",
+  "domain": "a4a/agreement/v2",
+  "cases": [
+    {
+      "name": "legacy-ascii",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "USD",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"USD\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "0c3a734fd58e2f95ce39875702a748410de1ee67c3e267e623bc0448122526c8"
+    },
+    {
+      "name": "unicode-bmp",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\u20ac\u6c49",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\u20ac\\u6c49\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "160ed119adb8ce753ca4d9fc74e6006741a18e925b91487642700e3374e7b52f"
+    },
+    {
+      "name": "astral",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\ud83d\ude80",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\ud83d\\ude80\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "6a96667191605738a6f6775a68c8d391352107c39abf9af4313cd4a77e7d7f3f"
+    },
+    {
+      "name": "json-controls",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\"\\/\b\t\n\f\r\u0000\u001f\u007f",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\\"\\\\/\\b\\t\\n\\f\\r\\u0000\\u001f\\u007f\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "4cad68df27b52f15f0ce4d4d7ae74704104ae1ecc8e4f595520b3b691c07bc00"
+    },
+    {
+      "name": "precomposed",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\u00e9",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\u00e9\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "e59841857c7f66774341b35c791cf5d7e2a76578f3a502633545f26dbd392241"
+    },
+    {
+      "name": "decomposed",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "e\u0301",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"e\\u0301\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "fe6c9203d4513cbda87395bc13d0578011b7221b18835ae49d90b8a6d251a58a"
+    },
+    {
+      "name": "line-separators",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\u2028\u2029",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\u2028\\u2029\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "c33ab647d7aee178bcf2700f28ea9e824d112e1676b3540cba27b457fa070e96"
+    },
+    {
+      "name": "lone-surrogate-codec-only",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "45000",
+        "currency": "\ud800",
+        "deadline": "1800000000",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"45000\",\"\\ud800\",1800000000,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "c50ed609f3c85b752653380d917cc3c7ed808b6bdba1eea8a75a2a580f256dcc"
+    },
+    {
+      "name": "zero",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "0",
+        "currency": "USD",
+        "deadline": "0",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"0\",\"USD\",0,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "8094047dac5e4caea166626ddca51ec01367a63cbe3b931d0ba8ab4080bdf475"
+    },
+    {
+      "name": "max-safe-number",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "9007199254740991",
+        "currency": "USD",
+        "deadline": "9007199254740991",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"9007199254740991\",\"USD\",9007199254740991,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "8ce386cc9ea4731fba94c9faea5c1a5cf4e08fba2f01d5a190a5bdbc85f228cb"
+    },
+    {
+      "name": "above-safe-number",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "9007199254740993",
+        "currency": "USD",
+        "deadline": "9007199254740993",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"9007199254740993\",\"USD\",9007199254740993,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "e265aca785661f592acf803bc1245f6d770398e3740d2afab6640dced1a1c4c9"
+    },
+    {
+      "name": "max-tag-number",
+      "terms": {
+        "intentId": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "offerId": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+        "price": "9999999999999999999",
+        "currency": "USD",
+        "deadline": "9999999999999999999",
+        "agentA": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "agentB": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "canonical": "[\"a4a-agreement-v2\",\"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii\",\"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\",\"9999999999999999999\",\"USD\",9999999999999999999,\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]",
+      "digest": "9dcd56dcb875002fe4a0ffaaa8561b0cf0ec3fc5dc3aa6bcbe745e4dfb4feb75"
+    }
+  ]
+}

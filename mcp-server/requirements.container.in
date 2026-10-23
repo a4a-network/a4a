@@ -1,0 +1,10 @@
+# Runtime dependencies from sdk-python and mcp-server, excluding the local a4a-sdk wheel.
+bech32>=1.2
+coincurve>=19
+cryptography>=50.0.0
+httpx>=0.28.1,<1
+mcp>=1.28.1
+pydantic>=2
+# Reject the vulnerable PyJWT versions that can remain in an older locked MCP graph.
+PyJWT>=2.15.1
+websockets>=12,<18

@@ -1,0 +1,57 @@
+# Line endings. Added on 2026-08-29 after tests failed in a FRESH CLONE despite passing
+# in the existing working tree.
+#
+# Git rewrites line endings on checkout by default (`core.autocrlf=true` on Windows).
+# That is harmless for ordinary source but fatal for a file whose SHA-256 is checked
+# against the specification: the checksum no longer matches, the test reports forged
+# official vectors, and the reader concludes that OUR cryptography is broken.
+
+# Use normal text normalization by default.
+* text=auto
+
+# Shell scripts must use LF in every checkout. CRLF makes the Linux interpreter fail
+# with `bad interpreter: /usr/bin/env bash^M`, and CI runs on Ubuntu.
+*.sh text eol=lf
+
+# Apply the same rule to files copied into and executed inside containers.
+Dockerfile* text eol=lf
+*.toml text eol=lf
+
+# Python wheel payload sources must have identical bytes under every checkout EOL
+# setting. This removes developer-machine dependence from wheel member contents; it
+# does not promise byte-identical ZIP containers, headers, or timestamps.
+#
+# Found on 2026-09-16 through two measurements. A strict check first caught CRLF only
+# in LICENSE. Comparing two checkouts then found 55 Python modules with different
+# payload bytes, which a local wheel comparison against the same tree could not detect.
+*.py text eol=lf
+LICENSE text eol=lf
+
+# The translation catalogue hashes exact English/translated README bytes. Preserve
+# these bytes in Windows checkouts as well as canonical Git and source archives.
+README.md text eol=lf
+docs/translations/*.md text eol=lf
+docs/translations/manifest.json text eol=lf
+
+# Preserve bytes exactly with no rewriting. These are the official NIP-44 test vectors,
+# and their checksum is verified against the specification.
+sdk-python/tests/nip44_vectors.json -text
+
+# Debian lock descriptors bind these measured inventory bytes exactly.
+relay/debian/*/base.tsv -text
+
+# Signed Debian metadata is pinned byte-for-byte, including line endings.
+relay/debian/*/*/InRelease -text
+
+# Native source notices bind exact upstream byte ranges and legal text hashes.
+notary/licenses/pycryptodomex-3.23.0-native-NOTICES.txt -text
+notary/licenses/pycryptodomex-LICENSE-libtom.txt -text
+notary/licenses/CC0-1.0.txt -text
+
+# Preserve the complete upstream grant accompanying the unchanged test fixture.
+sdk-python/tests/nip44_vectors.LICENSE.txt -text
+
+# Standalone capsule pins bind these exact preferred-source/legal input bytes.
+# Preserve publisher CRLF and the already accepted helper checksum in Git and
+# every checkout; general Python/text normalization would break the frontend pins.
+scripts/installer/** -text

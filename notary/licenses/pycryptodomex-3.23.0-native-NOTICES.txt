@@ -1,0 +1,763 @@
+PyCryptodomex 3.23.0 native source notices
+
+Complete unmodified comment blocks from the exact sdist source files associated
+with the selected wheel debug records and conservative local include graph.
+This includes preprocessor alternatives; it is not a claim that every block
+contributes executed code. Identical blocks are retained once with all paths.
+
+==== 0f0c1ead161d7fc8f2a382183dae42678905b534a32b4c4e9855b4b15fca5b7f ====
+pycryptodomex-3.23.0/src/blake2.c
+pycryptodomex-3.23.0/src/blake2b.c
+pycryptodomex-3.23.0/src/blake2s.c
+pycryptodomex-3.23.0/src/block_common.c
+pycryptodomex-3.23.0/src/chacha20.c
+pycryptodomex-3.23.0/src/cpuid.c
+pycryptodomex-3.23.0/src/raw_cbc.c
+pycryptodomex-3.23.0/src/raw_cfb.c
+pycryptodomex-3.23.0/src/raw_ctr.c
+pycryptodomex-3.23.0/src/raw_ecb.c
+pycryptodomex-3.23.0/src/raw_ocb.c
+pycryptodomex-3.23.0/src/raw_ofb.c
+pycryptodomex-3.23.0/src/strxor.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2014, Legrandin <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+
+==== 12dab4955d2c237a6b0de9a67ab7bd2a0d9bccb2ba2422c203abb2583905cd96 ====
+pycryptodomex-3.23.0/src/pkcs1_decode.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2021, Helder Eijs <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+
+==== 1485f1f09f0de981cea15952629fa5f145f16aaf8ecc4fb70817f164675c73b3 ====
+pycryptodomex-3.23.0/src/AESNI.c
+pycryptodomex-3.23.0/src/MD5.c
+pycryptodomex-3.23.0/src/SHA1.c
+pycryptodomex-3.23.0/src/common.h
+pycryptodomex-3.23.0/src/ec_ws.c
+pycryptodomex-3.23.0/src/endianess.h
+pycryptodomex-3.23.0/src/ghash_clmul.c
+pycryptodomex-3.23.0/src/hash_SHA2_template.c
+pycryptodomex-3.23.0/src/modexp.c
+pycryptodomex-3.23.0/src/mont.c
+pycryptodomex-3.23.0/src/poly1305.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2018, Helder Eijs <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+
+==== 15d1d33709b03603c13d9cf56242dcbb80790647726f689f491a7ea6b29c4740 ====
+pycryptodomex-3.23.0/src/libtom/tomcrypt_des.c
+
+/* LibTomCrypt, modular cryptographic library -- Tom St Denis
+ *
+ * LibTomCrypt is a library that provides various cryptographic
+ * algorithms in a highly modular and flexible manner.
+ *
+ * The library is free for all purposes without any express
+ * guarantee it works.
+ *
+ * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
+ */
+
+==== 18dd3828842c1de964b54793fc3d5fea200a8a4be1f65b104d7eb5e2e02f2f9c ====
+pycryptodomex-3.23.0/src/SHA224.c
+
+/*
+ * An implementation of the SHA-224 hash function.
+ *
+ * The Federal Information Processing Standards (FIPS) Specification 
+ * can be found here (FIPS 180-3):
+ *   http://csrc.nist.gov/publications/PubsFIPS.html
+ * 
+ * Written in 2010 by Lorenz Quack <don@amberfisharts.com>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== 30334dc9e51bebe76aa9534ed0945bc1faa337a2f22ce6e0464267ae5d88ba4e ====
+pycryptodomex-3.23.0/src/ghash_portable.c
+
+/*
+ *  galois.c: arithmetic in Galois Fields
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ */
+
+==== 39205153cab8931376822f429616d465d4b35708e9c7503691b0784cec1ce0dd ====
+pycryptodomex-3.23.0/src/AES.c
+
+/**
+ * rijndael-alg-fst.c
+ *
+ * @version 3.0 (December 2000)
+ *
+ * Optimised ANSI C code for the Rijndael cipher (now AES)
+ *
+ * @author Vincent Rijmen <vincent.rijmen@esat.kuleuven.ac.be>
+ * @author Antoon Bosselaers <antoon.bosselaers@esat.kuleuven.ac.be>
+ * @author Paulo Barreto <paulo.barreto@terra.com.br>
+ *
+ * This code is hereby placed in the public domain.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS ''AS IS'' AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+==== 3f803d2b6edda066375958d19cf8f9b65fc978e1ae4451c30046ecc079fea0dd ====
+pycryptodomex-3.23.0/src/RIPEMD160.c
+
+/*
+ *
+ *  RIPEMD160.c : RIPEMD-160 implementation
+ *
+ * Written in 2008 by Dwayne C. Litzenberger <dlitz@dlitz.net>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ * Country of origin: Canada
+ *
+ * This implementation (written in C) is based on an implementation the author
+ * wrote in Python.
+ *
+ * This implementation was written with reference to the RIPEMD-160
+ * specification, which is available at:
+ * http://homes.esat.kuleuven.be/~cosicart/pdf/AB-9601/
+ *
+ * It is also documented in the _Handbook of Applied Cryptography_, as
+ * Algorithm 9.55.  It's on page 30 of the following PDF file:
+ * http://www.cacr.math.uwaterloo.ca/hac/about/chap9.pdf
+ *
+ * The RIPEMD-160 specification doesn't really tell us how to do padding, but
+ * since RIPEMD-160 is inspired by MD4, you can use the padding algorithm from
+ * RFC 1320.
+ *
+ * According to http://www.users.zetnet.co.uk/hopwood/crypto/scan/md.html:
+ *   "RIPEMD-160 is big-bit-endian, little-byte-endian, and left-justified."
+ */
+
+==== 41066d2c67e8bdd64aab991e653472bb26a88b692c555b18e0fc9ccdf671936a ====
+pycryptodomex-3.23.0/src/Salsa20.c
+
+/*
+ * Salsa20.c : Source for the Salsa20 stream cipher.
+ *
+ * Part of the Python Cryptography Toolkit
+ *
+ * Contributed by Fabrizio Tarizzo <fabrizio@fabriziotarizzo.org>.
+ * Based on the reference implementation by D. J. Bernstein
+ * <http://cr.yp.to/snuffle/salsa20/regs/salsa20.c>
+ *
+ * =======================================================================
+ * The contents of this file are dedicated to the public domain.  To the
+ * extent that dedication to the public domain is not available, everyone
+ * is granted a worldwide, perpetual, royalty-free, non-exclusive license
+ * to exercise all rights associated with the contents of this file for
+ * any purpose whatsoever.  No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * =======================================================================
+ */
+
+==== 43e55835347c3c40fbda16312910d28270542151e554c1f9a7e2247a5d9264a5 ====
+pycryptodomex-3.23.0/src/curve25519.c
+pycryptodomex-3.23.0/src/curve448.c
+
+/* Copyright (C) 2024 by Helder Eijs <helderijs@gmail.com> -- All rights reserved.
+ * This code is licensed under the BSD 2-Clause license. See LICENSE.rst file for info. */
+
+==== 4b54999a88b6d26873c4cea321d5c7ee3fc53f6c12f7a2404d6873da80d639ff ====
+pycryptodomex-3.23.0/src/ARC2.c
+pycryptodomex-3.23.0/src/scrypt.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2015, Legrandin <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+
+==== 82f3db50231fd957a10f09ab45e943372c178ba7d693abaf01d40ef96c0e05ef ====
+pycryptodomex-3.23.0/src/MD4.c
+
+/*
+ *  md4.c : MD4 hash algorithm.
+ *
+ * Part of the Python Cryptography Toolkit
+ *
+ * Originally written by: A.M. Kuchling
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== 859a63db7a1366577cdafa9dd47c0fd3fdaf80be8c0c133741a4e0929925d65a ====
+pycryptodomex-3.23.0/src/CAST.c
+
+/*
+   cast.c -- implementation of CAST-128 (aka CAST5) as described in RFC2144
+
+   Written in 1997 by Wim Lewis <wiml@hhhh.org> based entirely on RFC2144.
+   Minor modifications made in 2002 by Andrew M. Kuchling <amk@amk.ca>.
+
+   ===================================================================
+   The contents of this file are dedicated to the public domain.  To
+   the extent that dedication to the public domain is not available,
+   everyone is granted a worldwide, perpetual, royalty-free,
+   non-exclusive license to exercise all rights associated with the
+   contents of this file for any purpose whatsoever.
+   No rights are reserved.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+   ===================================================================
+
+   Consult your local laws for possible restrictions on use, distribution, and
+   import/export. RFC2144 states that this algorithm "is available worldwide
+   on a royalty-free basis for commercial and non-commercial uses".
+
+   This code is a pretty straightforward transliteration of the RFC into C.
+   It has not been optimized much at all: byte-order-independent arithmetic
+   operations are used where order-dependent pointer ops or unions might be
+   faster; the code could be rearranged to give the optimizer a better
+   chance to speed things up; etc.
+
+   This code requires a vaguely ANSI-ish compiler.
+
+   compile -DTEST to include main() which performs the tests
+       specified in RFC2144
+
+   Tested with gcc 2.5.8 on i486, i586, i686, hp pa-risc, mc68040, sparc;
+   also with gcc 2.7.2 and (with minor changes) native Sun compiler on sparc
+
+*/
+
+==== 8739bc3b635e74653904dae4788afd35be56eab5eba75c12ef27487013254ac7 ====
+pycryptodomex-3.23.0/src/siphash.c
+
+/*
+   SipHash reference C implementation
+
+   Copyright (c) 2012-2016 Jean-Philippe Aumasson
+   <jeanphilippe.aumasson@gmail.com>
+   Copyright (c) 2012-2014 Daniel J. Bernstein <djb@cr.yp.to>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along
+   with
+   this software. If not, see
+   <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
+==== 9fc9a49a63a07a34548680db0e1540836e7ab8b16b8a7623811631444345700c ====
+pycryptodomex-3.23.0/src/DES.c
+
+/*
+ *  DES.c: DES/3DES support for PyCrypto using LibTomCrypt
+ *
+ * Written in 2009 by Dwayne C. Litzenberger <dlitz@dlitz.net>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ * Country of origin: Canada
+ */
+
+==== a58c56831e77242ca737a239fb2af1fcb26c46736356b04977d33058b58f9834 ====
+pycryptodomex-3.23.0/src/keccak.c
+
+/*
+ * An implementation of the SHA3 (Keccak) hash function family.
+ *
+ * Algorithm specifications: http://keccak.noekeon.org/
+ * NIST Announcement:
+ * http://csrc.nist.gov/groups/ST/hash/sha-3/winner_sha-3.html
+ *
+ * Written in 2013 by Fabrizio Tarizzo <fabrizio@fabriziotarizzo.org>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain. To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+*/
+
+==== b5f1f4c25b85d4d54135f45736c55f05dc0df125184006711a2fd65250ee5f72 ====
+pycryptodomex-3.23.0/src/SHA512.c
+
+/*
+ * An implementation of the SHA-512 hash function.
+ *
+ * The Federal Information Processing Standards (FIPS) Specification 
+ * can be found here (FIPS 180-3):
+ *   http://csrc.nist.gov/publications/PubsFIPS.html
+ * 
+ * Written in 2010 by Lorenz Quack <don@amberfisharts.com>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== b6acfd271b4b8ca2fd61391a4b1adc15206f53212023c67d36a3b9cf58303e84 ====
+pycryptodomex-3.23.0/src/MD2.c
+
+/*
+ *  md2.c : MD2 hash algorithm.
+ *
+ * Part of the Python Cryptography Toolkit
+ *
+ * Originally written by: A.M. Kuchling
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== ca1624c2ac079fe5973326341059d3e332913e1e94fa03cfe2b9243e3c843b6c ====
+pycryptodomex-3.23.0/src/ARC4.c
+
+/*
+ *  arc4.c : Implementation for the Alleged-RC4 stream cipher
+ *
+ * Part of the Python Cryptography Toolkit
+ *
+ * Originally written by: A.M. Kuchling
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== d2a96375acef0c50fd8db24f27783dd4aff8d21547a84ec30090f261157f4833 ====
+pycryptodomex-3.23.0/src/SHA256.c
+
+/*
+ * An implementation of the SHA-256 hash function.
+ *
+ * The Federal Information Processing Standards (FIPS) Specification 
+ * can be found here (FIPS 180-3):
+ *   http://csrc.nist.gov/publications/PubsFIPS.html
+ * 
+ * Written in 2010 by Lorenz Quack <don@amberfisharts.com>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== d2bb15f54a03d670673a8fdc9de45c73a0de59fd8dd7c738b688c53c453c6d6e ====
+pycryptodomex-3.23.0/src/ed25519.c
+pycryptodomex-3.23.0/src/ed448.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2022, Helder Eijs <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+
+==== db7b8c78ef8d9d28d8b821bdf824220ca98e783a42c67daf1a6296f358341857 ====
+pycryptodomex-3.23.0/src/SHA384.c
+
+/*
+ * An implementation of the SHA-384 hash function.
+ *
+ * The Federal Information Processing Standards (FIPS) Specification 
+ * can be found here (FIPS 180-3):
+ *   http://csrc.nist.gov/publications/PubsFIPS.html
+ * 
+ * Written in 2010 by Lorenz Quack <don@amberfisharts.com>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== e228bac2b2e105f706f78c375fc2a7b96a7d36e7ccd327026e145056b9e31f07 ====
+pycryptodomex-3.23.0/src/DES3.c
+
+/*
+ *  DES3.c: 3DES support for PyCrypto using LibTomCrypt
+ *
+ * Written in 2009 by Dwayne C. Litzenberger <dlitz@dlitz.net>
+ *
+ * ===================================================================
+ * The contents of this file are dedicated to the public domain.  To
+ * the extent that dedication to the public domain is not available,
+ * everyone is granted a worldwide, perpetual, royalty-free,
+ * non-exclusive license to exercise all rights associated with the
+ * contents of this file for any purpose whatsoever.
+ * No rights are reserved.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ===================================================================
+ *
+ */
+
+==== fa90a0bc1b7d5b907da095f80c14f3da9a95ae46ddf065bdeee4d0ee23b6d959 ====
+pycryptodomex-3.23.0/src/blowfish.c
+pycryptodomex-3.23.0/src/multiply_32.c
+pycryptodomex-3.23.0/src/multiply_64.c
+
+/* ===================================================================
+ *
+ * Copyright (c) 2019, Helder Eijs <helderijs@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ * ===================================================================
+ */
+

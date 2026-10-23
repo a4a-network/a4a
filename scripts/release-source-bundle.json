@@ -1,0 +1,1410 @@
+{
+  "schema": "a4a-release-source-bundle-v1",
+  "groups": [
+    {
+      "component": "opentimestamps",
+      "source_version": "0.4.5",
+      "covers": [
+        {
+          "image": "notary",
+          "name": "opentimestamps",
+          "version": "0.4.5"
+        }
+      ],
+      "notes": "Exact PyPI source distribution for the installed Python package.",
+      "artifacts": [
+        {
+          "filename": "opentimestamps-0.4.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/fb/2a/5f19420091d137e5a4c49cbe3de1964a3741d3264bad5e0a528e54aaef15/opentimestamps-0.4.5.tar.gz",
+          "sha256": "56726ccde97fb67f336a7f237ce36808e5593c3089d68d900b1c83d0ebf9dcfa",
+          "size": 35554
+        }
+      ]
+    },
+    {
+      "component": "python-bitcoinlib",
+      "source_version": "0.12.2",
+      "covers": [
+        {
+          "image": "notary",
+          "name": "python-bitcoinlib",
+          "version": "0.12.2"
+        }
+      ],
+      "notes": "Exact PyPI source distribution for the installed Python package.",
+      "artifacts": [
+        {
+          "filename": "python-bitcoinlib-0.12.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/90/a1/ca9d770094a0bfd0f2ce66b7180f0a7729b1b646d90f37f6debf38b28fab/python-bitcoinlib-0.12.2.tar.gz",
+          "sha256": "c65ab61427c77c38d397bfc431f71d86fd355b453a536496ec3fcb41bd10087d",
+          "size": 153798
+        }
+      ]
+    },
+    {
+      "component": "bzip2",
+      "source_version": "1.0.8-6",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "bzip2_1.0.8-6.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/b/bzip2/bzip2_1.0.8-6.dsc",
+          "sha256": "cd3bfd77254a6b5ef1be144bdc90a0dd374bc8206afd98ba4abf828741b79820",
+          "size": 1604
+        },
+        {
+          "filename": "bzip2_1.0.8-6.debian.tar.bz2",
+          "url": "https://deb.debian.org/debian/pool/main/b/bzip2/bzip2_1.0.8-6.debian.tar.bz2",
+          "sha256": "648ed0dac9a041ba6951e0cca521628aa39947cefee78139f7b934a5dc502095",
+          "size": 26991
+        },
+        {
+          "filename": "bzip2_1.0.8.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/b/bzip2/bzip2_1.0.8.orig.tar.gz",
+          "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+          "size": 810029
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libbz2-1.0",
+          "version": "1.0.8-6"
+        },
+        {
+          "image": "notary",
+          "name": "libbz2-1.0",
+          "version": "1.0.8-6"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libbz2-1.0",
+          "version": "1.0.8-6",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0",
+          "purl": "pkg:deb/debian/libbz2-1.0@1.0.8-6?arch=amd64&upstream=bzip2&distro=debian-13",
+          "notice_path": "/usr/share/doc/libbz2-1.0/copyright",
+          "notice_sha256": "832ed535ff3c3d025a8d2348eb1b697b89addcf2eaadbc17650262040b9145e2",
+          "notice_size": 2228,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libbz2-1.0",
+          "version": "1.0.8-6",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0",
+          "purl": "pkg:deb/debian/libbz2-1.0@1.0.8-6?arch=amd64&upstream=bzip2&distro=debian-13",
+          "notice_path": "/usr/share/doc/libbz2-1.0/copyright",
+          "notice_sha256": "832ed535ff3c3d025a8d2348eb1b697b89addcf2eaadbc17650262040b9145e2",
+          "notice_size": 2228,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "ca-certificates",
+      "source_version": "20250419",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "ca-certificates_20250419.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20250419.dsc",
+          "sha256": "3fc919369a3b84e34a959faa8bdffb9bd2c5a7d4a948a4b07a09a5d43e257030",
+          "size": 1766
+        },
+        {
+          "filename": "ca-certificates_20250419.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20250419.tar.xz",
+          "sha256": "33b44ef78653ecd3f0f2f13e5bba6be466be2e7da72182f737912b81798ba5d2",
+          "size": 277504
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "ca-certificates",
+          "version": "20250419"
+        },
+        {
+          "image": "mcp",
+          "name": "ca-certificates",
+          "version": "20250419"
+        },
+        {
+          "image": "notary",
+          "name": "ca-certificates",
+          "version": "20250419"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "ca-certificates",
+          "version": "20250419",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND MPL-2.0",
+          "purl": "pkg:deb/debian/ca-certificates@20250419?arch=all&distro=debian-13",
+          "notice_path": "/usr/share/doc/ca-certificates/copyright",
+          "notice_sha256": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c",
+          "notice_size": 18940,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "ca-certificates",
+          "version": "20250419",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND MPL-2.0",
+          "purl": "pkg:deb/debian/ca-certificates@20250419?arch=all&distro=debian-13",
+          "notice_path": "/usr/share/doc/ca-certificates/copyright",
+          "notice_sha256": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c",
+          "notice_size": 18940,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "ca-certificates",
+          "version": "20250419",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND MPL-2.0",
+          "purl": "pkg:deb/debian/ca-certificates@20250419?arch=all&distro=debian-13",
+          "notice_path": "/usr/share/doc/ca-certificates/copyright",
+          "notice_sha256": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c",
+          "notice_size": 18940,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "dash",
+      "source_version": "0.5.12-12",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "dash_0.5.12-12.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/d/dash/dash_0.5.12-12.dsc",
+          "sha256": "589efc4d87a4ae4745c273bdb33198d7c4f28a71736a8ece81d3677cf9c6e5ce",
+          "size": 1460
+        },
+        {
+          "filename": "dash_0.5.12-12.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/d/dash/dash_0.5.12-12.debian.tar.xz",
+          "sha256": "a278acb5d9a1f5d9a086d36a547287cbf3105b8f33c0e62d86d264decf5ba1ad",
+          "size": 47300
+        },
+        {
+          "filename": "dash_0.5.12.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/d/dash/dash_0.5.12.orig.tar.gz",
+          "sha256": "6a474ac46e8b0b32916c4c60df694c82058d3297d8b385b74508030ca4a8f28a",
+          "size": 246054
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "dash",
+          "version": "0.5.12-12"
+        },
+        {
+          "image": "mcp",
+          "name": "dash",
+          "version": "0.5.12-12"
+        },
+        {
+          "image": "notary",
+          "name": "dash",
+          "version": "0.5.12-12"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "dash",
+          "version": "0.5.12-12",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "BSD-3-Clause AND BSD-3-Clause AND GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/dash@0.5.12-12?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/dash/copyright",
+          "notice_sha256": "d98c53f281321baad38164aa9ae6e368a9253be6ec51bd26a759b5e72b326f4a",
+          "notice_size": 3878,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "dash",
+          "version": "0.5.12-12",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-3-Clause AND BSD-3-Clause AND GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/dash@0.5.12-12?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/dash/copyright",
+          "notice_sha256": "d98c53f281321baad38164aa9ae6e368a9253be6ec51bd26a759b5e72b326f4a",
+          "notice_size": 3878,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "dash",
+          "version": "0.5.12-12",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-3-Clause AND BSD-3-Clause AND GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/dash@0.5.12-12?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/dash/copyright",
+          "notice_sha256": "d98c53f281321baad38164aa9ae6e368a9253be6ec51bd26a759b5e72b326f4a",
+          "notice_size": 3878,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "db5.3",
+      "source_version": "5.3.28+dfsg2-9",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "db5.3_5.3.28+dfsg2-9.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2-9.dsc",
+          "sha256": "045f392c75dffc9d4f3bd44978b90ca8d45b935cf0ae4202bf79a760f2ce07b1",
+          "size": 2373
+        },
+        {
+          "filename": "db5.3_5.3.28+dfsg2-9.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2-9.debian.tar.xz",
+          "sha256": "21fe6ee0491c83d0c34fe52e0e0e423946172eff68262584a0cc8ef880c36b74",
+          "size": 36412
+        },
+        {
+          "filename": "db5.3_5.3.28+dfsg2.orig.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2.orig.tar.xz",
+          "sha256": "ad41b507415dec8316e828b2230242af2251d2c86eefa3c7aa9ef47c5239ef33",
+          "size": 21287688
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libdb5.3t64",
+          "version": "5.3.28+dfsg2-9"
+        },
+        {
+          "image": "notary",
+          "name": "libdb5.3t64",
+          "version": "5.3.28+dfsg2-9"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libdb5.3t64",
+          "version": "5.3.28+dfsg2-9",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-3-Clause AND GPL-3.0 AND MS-PL AND Sleepycat AND X11 AND Zlib",
+          "purl": "pkg:deb/debian/libdb5.3t64@5.3.28+dfsg2-9?arch=amd64&upstream=db5.3&distro=debian-13",
+          "notice_path": "/usr/share/doc/libdb5.3t64/copyright",
+          "notice_sha256": "8b53da37d73289d9df7317b3a2dbe16491f1fa9fec8b77b86d69704b40ce2c26",
+          "notice_size": 17177,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libdb5.3t64",
+          "version": "5.3.28+dfsg2-9",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-3-Clause AND GPL-3.0 AND MS-PL AND Sleepycat AND X11 AND Zlib",
+          "purl": "pkg:deb/debian/libdb5.3t64@5.3.28+dfsg2-9?arch=amd64&upstream=db5.3&distro=debian-13",
+          "notice_path": "/usr/share/doc/libdb5.3t64/copyright",
+          "notice_sha256": "8b53da37d73289d9df7317b3a2dbe16491f1fa9fec8b77b86d69704b40ce2c26",
+          "notice_size": 17177,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "debianutils",
+      "source_version": "5.23.2",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "debianutils_5.23.2.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/d/debianutils/debianutils_5.23.2.dsc",
+          "sha256": "471b65deec232bb033f3e3e06d5bf64dac0ced474c6fd61d41538f3f3de876f8",
+          "size": 1908
+        },
+        {
+          "filename": "debianutils_5.23.2.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/d/debianutils/debianutils_5.23.2.tar.xz",
+          "sha256": "79e524b7526dba2ec5c409d0ee52ebec135815cf5b2907375d444122e0594b69",
+          "size": 82376
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "debianutils",
+          "version": "5.23.2"
+        },
+        {
+          "image": "mcp",
+          "name": "debianutils",
+          "version": "5.23.2"
+        },
+        {
+          "image": "notary",
+          "name": "debianutils",
+          "version": "5.23.2"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "debianutils",
+          "version": "5.23.2",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/debianutils@5.23.2?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/debianutils/copyright",
+          "notice_sha256": "aeb68ea374f488431b8963df24f05482692edfa70d7556d7e528dd06d255461c",
+          "notice_size": 9062,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "debianutils",
+          "version": "5.23.2",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/debianutils@5.23.2?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/debianutils/copyright",
+          "notice_sha256": "aeb68ea374f488431b8963df24f05482692edfa70d7556d7e528dd06d255461c",
+          "notice_size": 9062,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "debianutils",
+          "version": "5.23.2",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/debianutils@5.23.2?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/debianutils/copyright",
+          "notice_sha256": "aeb68ea374f488431b8963df24f05482692edfa70d7556d7e528dd06d255461c",
+          "notice_size": 9062,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "gcc-14",
+      "source_version": "14.2.0-19",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "gcc-14_14.2.0-19.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/gcc-14_14.2.0-19.dsc",
+          "sha256": "7db1e202cce66617e9134a662c877a3a773de5b612fd52179815877e0ecfb847",
+          "size": 47347
+        },
+        {
+          "filename": "gcc-14_14.2.0-19.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/gcc-14_14.2.0-19.debian.tar.xz",
+          "sha256": "31cbab4bafa48aa1c540497bd8098cbcf98e673778f927651ed944709f687781",
+          "size": 2577016
+        },
+        {
+          "filename": "gcc-14_14.2.0.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/gcc-14_14.2.0.orig.tar.gz",
+          "sha256": "e162a5ef3f0077ecae598c6556908d2ab80841532df3398072a96a6df6e6aa29",
+          "size": 94299633
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19"
+        },
+        {
+          "image": "relay",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19"
+        },
+        {
+          "image": "mcp",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19"
+        },
+        {
+          "image": "mcp",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19"
+        },
+        {
+          "image": "notary",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19"
+        },
+        {
+          "image": "notary",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/gcc-14-base@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/gcc-14-base/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "relay",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/libgcc-s1@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/libgcc-s1/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/gcc-14-base@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/gcc-14-base/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/libgcc-s1@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/libgcc-s1/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "gcc-14-base",
+          "version": "14.2.0-19",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/gcc-14-base@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/gcc-14-base/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libgcc-s1",
+          "version": "14.2.0-19",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GFDL-1.2 AND GPL-3.0",
+          "purl": "pkg:deb/debian/libgcc-s1@14.2.0-19?arch=amd64&upstream=gcc-14&distro=debian-13",
+          "notice_path": "/usr/share/doc/libgcc-s1/copyright",
+          "notice_sha256": "20390f8a6f3b1e4d7cb45dd8652dabb259bbef688cbad839bcdb0b9ba7252f79",
+          "notice_size": 69004,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "gdbm",
+      "source_version": "1.24-2",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "gdbm_1.24-2.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/g/gdbm/gdbm_1.24-2.dsc",
+          "sha256": "28acecf1cf00240942833c04079a02bb4c199a48faa1f4ca90f0ea9b79dc5841",
+          "size": 2466
+        },
+        {
+          "filename": "gdbm_1.24-2.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/g/gdbm/gdbm_1.24-2.debian.tar.xz",
+          "sha256": "736d23450674c1bf0b03a2f65b83870b0801bc3747df3099df970c1479b0ab63",
+          "size": 16880
+        },
+        {
+          "filename": "gdbm_1.24.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/g/gdbm/gdbm_1.24.orig.tar.gz",
+          "sha256": "695e9827fdf763513f133910bc7e6cfdb9187943a4fec943e57449723d2b8dbf",
+          "size": 1195931
+        },
+        {
+          "filename": "gdbm_1.24.orig.tar.gz.asc",
+          "url": "https://deb.debian.org/debian/pool/main/g/gdbm/gdbm_1.24.orig.tar.gz.asc",
+          "sha256": "8fb2f87e817ed6bd1d7ef2ab976f6a0046814a5ff28a06c521b796e0d3fd1226",
+          "size": 195
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libgdbm6t64",
+          "version": "1.24-2"
+        },
+        {
+          "image": "notary",
+          "name": "libgdbm6t64",
+          "version": "1.24-2"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libgdbm6t64",
+          "version": "1.24-2",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/libgdbm6t64@1.24-2?arch=amd64&upstream=gdbm&distro=debian-13",
+          "notice_path": "/usr/share/doc/libgdbm6t64/copyright",
+          "notice_sha256": "c68f7e6c9b84dd360916a21c951a11829cc55b8793d66094dbfc39eba1618696",
+          "notice_size": 2701,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libgdbm6t64",
+          "version": "1.24-2",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/libgdbm6t64@1.24-2?arch=amd64&upstream=gdbm&distro=debian-13",
+          "notice_path": "/usr/share/doc/libgdbm6t64/copyright",
+          "notice_sha256": "c68f7e6c9b84dd360916a21c951a11829cc55b8793d66094dbfc39eba1618696",
+          "notice_size": 2701,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "glibc",
+      "source_version": "2.41-12+deb13u4",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "glibc_2.41-12+deb13u4.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41-12+deb13u4.dsc",
+          "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e",
+          "size": 7576
+        },
+        {
+          "filename": "glibc_2.41-12+deb13u4.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41-12+deb13u4.debian.tar.xz",
+          "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+          "size": 499524
+        },
+        {
+          "filename": "glibc_2.41.orig.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41.orig.tar.xz",
+          "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+          "size": 20323540
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4"
+        },
+        {
+          "image": "relay",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4"
+        },
+        {
+          "image": "mcp",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4"
+        },
+        {
+          "image": "mcp",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4"
+        },
+        {
+          "image": "notary",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4"
+        },
+        {
+          "image": "notary",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc-bin@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc-bin/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "relay",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc6@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc6/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc-bin@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc-bin/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc6@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc6/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libc-bin",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc-bin@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc-bin/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libc6",
+          "version": "2.41-12+deb13u4",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-2-Clause AND BSL-1.0 AND FSFAP AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+ AND Unicode-DFS-2016",
+          "purl": "pkg:deb/debian/libc6@2.41-12+deb13u4?arch=amd64&upstream=glibc&distro=debian-13",
+          "notice_path": "/usr/share/doc/libc6/copyright",
+          "notice_sha256": "f5788886720a2605a946e81d571e6c8162b09f58d2e2ceb8d36e5768fccd850d",
+          "notice_size": 51200,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "libffi",
+      "source_version": "3.4.8-2",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "libffi_3.4.8-2.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/libf/libffi/libffi_3.4.8-2.dsc",
+          "sha256": "4424defe3f37c0084f062e03330b2ba3d3f927367c33be455cfacf7f85a78161",
+          "size": 1948
+        },
+        {
+          "filename": "libffi_3.4.8-2.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/libf/libffi/libffi_3.4.8-2.debian.tar.xz",
+          "sha256": "f23ac79a19895ebb6bbb539263d0d945ebc2d3e91217a597f5819777f08b401c",
+          "size": 11220
+        },
+        {
+          "filename": "libffi_3.4.8.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/libf/libffi/libffi_3.4.8.orig.tar.gz",
+          "sha256": "cbb7f0b3b095dc506387ec1e35b891bfb4891d05b90a495bc69a10f2293f80ff",
+          "size": 595051
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libffi8",
+          "version": "3.4.8-2"
+        },
+        {
+          "image": "notary",
+          "name": "libffi8",
+          "version": "3.4.8-2"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libffi8",
+          "version": "3.4.8-2",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0+ AND GPL-3.0+ AND MPL-1.1 AND X11",
+          "purl": "pkg:deb/debian/libffi8@3.4.8-2?arch=amd64&upstream=libffi&distro=debian-13",
+          "notice_path": "/usr/share/doc/libffi8/copyright",
+          "notice_sha256": "25ee86cfccc2b7eb9a156a127f1e1b38c46c231f516ff201912223eaf62ee186",
+          "notice_size": 10164,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libffi8",
+          "version": "3.4.8-2",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0+ AND GPL-3.0+ AND MPL-1.1 AND X11",
+          "purl": "pkg:deb/debian/libffi8@3.4.8-2?arch=amd64&upstream=libffi&distro=debian-13",
+          "notice_path": "/usr/share/doc/libffi8/copyright",
+          "notice_sha256": "25ee86cfccc2b7eb9a156a127f1e1b38c46c231f516ff201912223eaf62ee186",
+          "notice_size": 10164,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "libzstd",
+      "source_version": "1.5.7+dfsg-1",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "libzstd_1.5.7+dfsg-1.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/libz/libzstd/libzstd_1.5.7+dfsg-1.dsc",
+          "sha256": "8f6ab97fa772d921334e50fa5756a0951e23c718dc913e43a228f28c1a23adf9",
+          "size": 2371
+        },
+        {
+          "filename": "libzstd_1.5.7+dfsg-1.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/libz/libzstd/libzstd_1.5.7+dfsg-1.debian.tar.xz",
+          "sha256": "5e88424d919941291f79e1bfada6cb1a6f748671d9de7d4b7d931f361f183a15",
+          "size": 23036
+        },
+        {
+          "filename": "libzstd_1.5.7+dfsg.orig.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/libz/libzstd/libzstd_1.5.7+dfsg.orig.tar.xz",
+          "sha256": "0c092ef267edce57ba7f3f2645c861f72eaf5e76273c6c3632869423464b90a5",
+          "size": 1834780
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1"
+        },
+        {
+          "image": "mcp",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1"
+        },
+        {
+          "image": "notary",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "BSD-3-Clause AND GPL-2.0 AND Zlib",
+          "purl": "pkg:deb/debian/libzstd1@1.5.7+dfsg-1?arch=amd64&upstream=libzstd&distro=debian-13",
+          "notice_path": "/usr/share/doc/libzstd1/copyright",
+          "notice_sha256": "5cec9fef4d3fa7e0371fbef4ec3fc416e0105dc2a9922117f84e825cb11f50f8",
+          "notice_size": 5332,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-3-Clause AND GPL-2.0 AND Zlib",
+          "purl": "pkg:deb/debian/libzstd1@1.5.7+dfsg-1?arch=amd64&upstream=libzstd&distro=debian-13",
+          "notice_path": "/usr/share/doc/libzstd1/copyright",
+          "notice_sha256": "5cec9fef4d3fa7e0371fbef4ec3fc416e0105dc2a9922117f84e825cb11f50f8",
+          "notice_size": 5332,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libzstd1",
+          "version": "1.5.7+dfsg-1",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-3-Clause AND GPL-2.0 AND Zlib",
+          "purl": "pkg:deb/debian/libzstd1@1.5.7+dfsg-1?arch=amd64&upstream=libzstd&distro=debian-13",
+          "notice_path": "/usr/share/doc/libzstd1/copyright",
+          "notice_sha256": "5cec9fef4d3fa7e0371fbef4ec3fc416e0105dc2a9922117f84e825cb11f50f8",
+          "notice_size": 5332,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "openssl",
+      "source_version": "3.5.7-1~deb13u3",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "openssl_3.5.7-1~deb13u3.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/o/openssl/openssl_3.5.7-1~deb13u3.dsc",
+          "sha256": "9cdb0d9daf0773ca5c0f3f5ea1fc59b1106a99e005a5c048948b826e8d3b47e1",
+          "size": 2710
+        },
+        {
+          "filename": "openssl_3.5.7-1~deb13u3.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/o/openssl/openssl_3.5.7-1~deb13u3.debian.tar.xz",
+          "sha256": "0a427fdc3e773f4119a7dd5b36d1f0903a163cf4ea15d812bb823b251ff1cbc5",
+          "size": 147344
+        },
+        {
+          "filename": "openssl_3.5.7.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/o/openssl/openssl_3.5.7.orig.tar.gz",
+          "sha256": "a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8",
+          "size": 53153930
+        },
+        {
+          "filename": "openssl_3.5.7.orig.tar.gz.asc",
+          "url": "https://deb.debian.org/debian/pool/main/o/openssl/openssl_3.5.7.orig.tar.gz.asc",
+          "sha256": "d3d082bee3f658c31db53af625eceecf29d777c7010394bed5787ebcc98abdf2",
+          "size": 833
+        }
+      ],
+      "covers": [
+        {
+          "image": "relay",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "relay",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "relay",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "mcp",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "mcp",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "mcp",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "notary",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "notary",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3"
+        },
+        {
+          "image": "notary",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "relay",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/libssl3t64@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/libssl3t64/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "relay",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl@3.5.7-1~deb13u3?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "relay",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:344c5a7c0db0b34e4b5e37c78c96e036f94aad691f41321e3161c1e52a6413fa",
+          "sbom_sha256": "0615235358224d071dc08c42d86a4e6c787e6a2f5513fabea276df668c29bbc1",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl-provider-legacy@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl-provider-legacy/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/libssl3t64@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/libssl3t64/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl@3.5.7-1~deb13u3?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl-provider-legacy@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl-provider-legacy/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libssl3t64",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/libssl3t64@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/libssl3t64/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "openssl",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl@3.5.7-1~deb13u3?arch=amd64&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "openssl-provider-legacy",
+          "version": "3.5.7-1~deb13u3",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "Apache-2.0 AND GPL-1.0 AND GPL-1.0+",
+          "purl": "pkg:deb/debian/openssl-provider-legacy@3.5.7-1~deb13u3?arch=amd64&upstream=openssl&distro=debian-13",
+          "notice_path": "/usr/share/doc/openssl-provider-legacy/copyright",
+          "notice_sha256": "6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35",
+          "notice_size": 2543,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "readline",
+      "source_version": "8.2-6",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "readline_8.2-6.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/r/readline/readline_8.2-6.dsc",
+          "sha256": "6f94c7144d6b6b1ff88aaebd81480e87f8773b7638031782aac12ef93ffd2e71",
+          "size": 2810
+        },
+        {
+          "filename": "readline_8.2-6.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/r/readline/readline_8.2-6.debian.tar.xz",
+          "sha256": "d1cf806644dbce298cf929f1cc9b3af5a50cd7db97b6f69db280c1eb2f544376",
+          "size": 38396
+        },
+        {
+          "filename": "readline_8.2.orig.tar.gz",
+          "url": "https://deb.debian.org/debian/pool/main/r/readline/readline_8.2.orig.tar.gz",
+          "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35",
+          "size": 3043952
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libreadline8t64",
+          "version": "8.2-6"
+        },
+        {
+          "image": "mcp",
+          "name": "readline-common",
+          "version": "8.2-6"
+        },
+        {
+          "image": "notary",
+          "name": "libreadline8t64",
+          "version": "8.2-6"
+        },
+        {
+          "image": "notary",
+          "name": "readline-common",
+          "version": "8.2-6"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libreadline8t64",
+          "version": "8.2-6",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/libreadline8t64@8.2-6?arch=amd64&upstream=readline&distro=debian-13",
+          "notice_path": "/usr/share/doc/libreadline8t64/copyright",
+          "notice_sha256": "854c6f5f249a109a913e1e58528445c4fec96f063ae8ba496bfb2b460bcc6866",
+          "notice_size": 4314,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "mcp",
+          "name": "readline-common",
+          "version": "8.2-6",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/readline-common@8.2-6?arch=all&upstream=readline&distro=debian-13",
+          "notice_path": "/usr/share/doc/readline-common/copyright",
+          "notice_sha256": "854c6f5f249a109a913e1e58528445c4fec96f063ae8ba496bfb2b460bcc6866",
+          "notice_size": 4314,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libreadline8t64",
+          "version": "8.2-6",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/libreadline8t64@8.2-6?arch=amd64&upstream=readline&distro=debian-13",
+          "notice_path": "/usr/share/doc/libreadline8t64/copyright",
+          "notice_sha256": "854c6f5f249a109a913e1e58528445c4fec96f063ae8ba496bfb2b460bcc6866",
+          "notice_size": 4314,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "readline-common",
+          "version": "8.2-6",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+",
+          "purl": "pkg:deb/debian/readline-common@8.2-6?arch=all&upstream=readline&distro=debian-13",
+          "notice_path": "/usr/share/doc/readline-common/copyright",
+          "notice_sha256": "854c6f5f249a109a913e1e58528445c4fec96f063ae8ba496bfb2b460bcc6866",
+          "notice_size": 4314,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "sqlite3",
+      "source_version": "3.46.1-7+deb13u2",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "sqlite3_3.46.1-7+deb13u2.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/s/sqlite3/sqlite3_3.46.1-7+deb13u2.dsc",
+          "sha256": "46e1eec171e11108fc436e45309b635b601029726b6ffd3bf435bb474e511638",
+          "size": 2673
+        },
+        {
+          "filename": "sqlite3_3.46.1-7+deb13u2.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/s/sqlite3/sqlite3_3.46.1-7+deb13u2.debian.tar.xz",
+          "sha256": "59d33bc436258603702bb051d645743ab03612b82f79e7c7d638c65127c21261",
+          "size": 37084
+        },
+        {
+          "filename": "sqlite3_3.46.1.orig-www.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/s/sqlite3/sqlite3_3.46.1.orig-www.tar.xz",
+          "sha256": "648df41a8e532882b1905df45919aae4bafaf74c455f66bc86f1f52f45c8b8f0",
+          "size": 5861820
+        },
+        {
+          "filename": "sqlite3_3.46.1.orig.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/s/sqlite3/sqlite3_3.46.1.orig.tar.xz",
+          "sha256": "d0cdd2ece271b29e7ce18095745d892517ee26d0f270065b3a25c2e9eb11639c",
+          "size": 8456776
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libsqlite3-0",
+          "version": "3.46.1-7+deb13u2"
+        },
+        {
+          "image": "notary",
+          "name": "libsqlite3-0",
+          "version": "3.46.1-7+deb13u2"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libsqlite3-0",
+          "version": "3.46.1-7+deb13u2",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/libsqlite3-0@3.46.1-7+deb13u2?arch=amd64&upstream=sqlite3&distro=debian-13",
+          "notice_path": "/usr/share/doc/libsqlite3-0/copyright",
+          "notice_sha256": "7b1679aaa97e6e49ec12460eefa85a82b432053bc468dd89dbdb50f2326589f3",
+          "notice_size": 1770,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libsqlite3-0",
+          "version": "3.46.1-7+deb13u2",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "GPL-2.0 AND GPL-2.0+",
+          "purl": "pkg:deb/debian/libsqlite3-0@3.46.1-7+deb13u2?arch=amd64&upstream=sqlite3&distro=debian-13",
+          "notice_path": "/usr/share/doc/libsqlite3-0/copyright",
+          "notice_sha256": "7b1679aaa97e6e49ec12460eefa85a82b432053bc468dd89dbdb50f2326589f3",
+          "notice_size": 1770,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "util-linux",
+      "source_version": "2.41.5-0+deb13u1",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "util-linux_2.41.5-0+deb13u1.dsc",
+          "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.dsc",
+          "sha256": "43e9b2cbebd10fdc598c4ad10217c8202c28de53af6eafc892c8e9b5cbf3a3a5",
+          "size": 4988
+        },
+        {
+          "filename": "util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+          "sha256": "5b327ccd22f0f4ed28a389870aa51d04ecedb8693e52a1d122850f2b3188cbf6",
+          "size": 107604
+        },
+        {
+          "filename": "util-linux_2.41.5.orig.tar.xz",
+          "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5.orig.tar.xz",
+          "sha256": "f586e35d320ff537aab3ffeca37e9ecd482ccbe013590db4429a414d8aa6a728",
+          "size": 9474992
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "libuuid1",
+          "version": "2.41.5-0+deb13u1"
+        },
+        {
+          "image": "notary",
+          "name": "libuuid1",
+          "version": "2.41.5-0+deb13u1"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "libuuid1",
+          "version": "2.41.5-0+deb13u1",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+",
+          "purl": "pkg:deb/debian/libuuid1@2.41.5-0+deb13u1?arch=amd64&upstream=util-linux&distro=debian-13",
+          "notice_path": "/usr/share/doc/libuuid1/copyright",
+          "notice_sha256": "56b67e2eb8bac5a15d91e261d558d73f1f029113cced229753138194997366b6",
+          "notice_size": 30341,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "libuuid1",
+          "version": "2.41.5-0+deb13u1",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND GPL-3.0+ AND ISC AND LGPL-2.0 AND LGPL-2.0+ AND LGPL-2.1 AND LGPL-2.1+ AND LGPL-3.0 AND LGPL-3.0+",
+          "purl": "pkg:deb/debian/libuuid1@2.41.5-0+deb13u1?arch=amd64&upstream=util-linux&distro=debian-13",
+          "notice_path": "/usr/share/doc/libuuid1/copyright",
+          "notice_sha256": "56b67e2eb8bac5a15d91e261d558d73f1f029113cced229753138194997366b6",
+          "notice_size": 30341,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    },
+    {
+      "component": "xz-utils",
+      "source_version": "5.8.1-1+deb13u2",
+      "notes": "Exact Debian source for the inventory-bound installed packages. Conservative source provision: full notice grants/exceptions and separate replacement/relinking acceptance remain applicable. HTTPS/checksum provenance; OpenPGP signatures are preserved, not authenticated.",
+      "artifacts": [
+        {
+          "filename": "xz-utils_5.8.1-1+deb13u2.dsc",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/x/xz-utils/xz-utils_5.8.1-1+deb13u2.dsc",
+          "sha256": "f02574465dcb7da3d5b7bdfc20ea350248c3371b0df36bb005152af80d61cdfc",
+          "size": 2562
+        },
+        {
+          "filename": "xz-utils_5.8.1-1+deb13u2.debian.tar.xz",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/x/xz-utils/xz-utils_5.8.1-1+deb13u2.debian.tar.xz",
+          "sha256": "7dfcff43a8035561c4860a4893f7cf9de5e977e79a90aee4d101053e21912cb0",
+          "size": 28044
+        },
+        {
+          "filename": "xz-utils_5.8.1.orig.tar.xz",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/x/xz-utils/xz-utils_5.8.1.orig.tar.xz",
+          "sha256": "0b54f79df85912504de0b14aec7971e3f964491af1812d83447005807513cd9e",
+          "size": 1461872
+        },
+        {
+          "filename": "xz-utils_5.8.1.orig.tar.xz.asc",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/x/xz-utils/xz-utils_5.8.1.orig.tar.xz.asc",
+          "sha256": "4138f4ceca1aa7fd2085fb15a23f6d495d27bca6d3c49c429a8520ea622c27ae",
+          "size": 833
+        }
+      ],
+      "covers": [
+        {
+          "image": "mcp",
+          "name": "liblzma5",
+          "version": "5.8.1-1+deb13u2"
+        },
+        {
+          "image": "notary",
+          "name": "liblzma5",
+          "version": "5.8.1-1+deb13u2"
+        }
+      ],
+      "inventory_bindings": [
+        {
+          "image": "mcp",
+          "name": "liblzma5",
+          "version": "5.8.1-1+deb13u2",
+          "image_id": "sha256:628d07379b39e33704f8ba5984320d87f9d3da99db13c39fc5df3c3f6261a7f4",
+          "sbom_sha256": "40447190b57c8acf6af07fc827d8e1d5a0b8c7d77c80bfd717d03fe18be6a25a",
+          "sbom_license": "0BSD AND FSFUL AND FSFULLR AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND LGPL-2.1 AND LGPL-2.1+",
+          "purl": "pkg:deb/debian/liblzma5@5.8.1-1+deb13u2?arch=amd64&upstream=xz-utils&distro=debian-13",
+          "notice_path": "/usr/share/doc/liblzma5/copyright",
+          "notice_sha256": "d755588e2d89d7845d0d4e718ac45d49ae9fc53cec4540af105963c20598f9d7",
+          "notice_size": 11875,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        },
+        {
+          "image": "notary",
+          "name": "liblzma5",
+          "version": "5.8.1-1+deb13u2",
+          "image_id": "sha256:f15832fc80a3cc31d7ed54166be38fbe4a28f0b17fdcd6493fc31fccf832ed35",
+          "sbom_sha256": "87064820db6b6bc879994ee20a5631caf5f97ffc1b137a9a01989f2fd76770fb",
+          "sbom_license": "0BSD AND FSFUL AND FSFULLR AND GPL-2.0 AND GPL-2.0+ AND GPL-3.0 AND LGPL-2.1 AND LGPL-2.1+",
+          "purl": "pkg:deb/debian/liblzma5@5.8.1-1+deb13u2?arch=amd64&upstream=xz-utils&distro=debian-13",
+          "notice_path": "/usr/share/doc/liblzma5/copyright",
+          "notice_sha256": "d755588e2d89d7845d0d4e718ac45d49ae9fc53cec4540af105963c20598f9d7",
+          "notice_size": 11875,
+          "review_scope": "Conservative exact-source provision for this installed Debian SBOM license expression. Preserve the complete notice and all file-specific grants/exceptions. License normalization, required relinking/replacement and legal acceptance remain separate."
+        }
+      ]
+    }
+  ]
+}

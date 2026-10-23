@@ -1,0 +1,31 @@
+[project]
+name = "a4a-file-gateway"
+version = "0.1.0"
+description = "A4A file gateway: recipient-only ciphertext storage on an S3-compatible backend"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["agents", "a4a", "protocol", "ai-agents"]
+dependencies = [
+    "a4a-sdk",
+    # boto3 is the maintained S3 client. 1.36 is the first release that can turn
+    # off default flexible checksums, which S3-compatible stores otherwise reject.
+    "boto3>=1.36,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "moto>=5,<6"]
+
+[project.urls]
+Source = "https://github.com/a4a-network/a4a"
+Issues = "https://github.com/a4a-network/a4a/issues"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["a4a_file_gateway", "a4a_file_gateway.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

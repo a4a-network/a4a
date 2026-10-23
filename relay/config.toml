@@ -1,0 +1,81 @@
+[info]
+relay_url = "ws://localhost:8080"
+name = "a4a-dev-relay"
+description = "Local A4A relay for development"
+
+[database]
+data_directory = "/usr/src/app/db"
+# SQLite page cache is PER CONNECTION, not per process: up to max_conn readers plus a
+# writer and maintenance connection. The upstream 80 MB value could consume 800 MB for
+# cache alone, more than the node's 972 MB of RAM. 8 MB x roughly 10 connections = 80 MB.
+cache_size_mb = 8
+# The one-time database rebuild for incremental vacuum needs free space roughly equal to
+# the database and holds a lock. Above this threshold the relay logs a warning instead of
+# rebuilding silently, leaving the maintenance window to an operator.
+vacuum_max_bytes = 2147483648
+
+
+[network]
+address = "0.0.0.0"
+port = 8080
+
+[limits]
+messages_per_sec = 100
+subscriptions_per_min = 120
+max_event_bytes = 131072
+max_ws_message_bytes = 131072
+max_ws_frame_bytes = 131072
+
+# IMPORTANT: this configuration matches production BEHAVIOR. Only the name, address, and
+# retention periods differ (shorter so effects are visible in development). Previously
+# it omitted required_for_kinds, reject_future_seconds, and retention. Code worked against
+# the local relay and then failed in production, misleading contributors about the cause
+# (audit 2026-08-29).
+[a4a]
+enabled = true
+rest_enabled = true
+# Require exact-origin NIP-98 proof from the recipient before serving /v1/inbox.
+# Keep false until every inbox client sends the header; NIP-11 advertises this value.
+inbox_auth = false
+delegation_kind = 31000
+delegation_cache_ttl_secs = 300
+delegation_lookup_rate_per_sec = 2000
+# Same list as production: events require an owner mandate.
+required_for_kinds = [31001, 31002, 31003, 31004, 31005, 31006, 31010, 31020, 31022, 31030, 31031, 31032, 31033, 31034, 31985]
+
+# Time notary (the `notary/` sidecar, specification section 2.9). Development usually
+# runs without it. Without a declared key the node ACCEPTS kind 1040 from anyone but
+# treats those events as expendable (expiry, per-author ceiling, and storage budget).
+# This permits local testing of time-and-authority flows without unbounded disk growth.
+#
+# To get a verified `a4a_check_authority` result instead of "not verifiable":
+#   1) start the sidecar with `docker run ... a4a-notary:latest`; on first start it
+#      creates a key and logs its pubkey;
+#   2) add that pubkey here and restart the node;
+#   3) after the first Bitcoin block (1-3 hours), attestations appear and readers can
+#      report "authorized at publication time."
+# With a declared key, the node accepts kind 1040 ONLY from it and its retired keys.
+# notary_pubkey = "<64 hex from the notary log>"
+# notary_retired = [{ pubkey = "<previous key>", until = 1788480000 }]
+
+[options]
+reject_future_seconds = 900
+
+[retention]
+# Intentionally below the production ceiling so the effect is visible in development.
+max_events_per_author = 500
+# Database-size ceiling: deliberately small in development so constrained behavior is
+# encountered locally rather than for the first time in production.
+max_db_bytes = 1073741824   # 1 GiB
+
+[retention.kind_persist_days]
+31002 = 7
+31003 = 7
+31010 = 1
+31030 = 14
+31031 = 14
+31032 = 14
+31033 = 7
+1059 = 7
+31034 = 7
+31985 = 30

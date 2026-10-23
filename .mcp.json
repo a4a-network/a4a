@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "a4a": {
+      "command": "uvx",
+      "args": ["a4a-mcp"],
+      "env": {
+        "A4A_RELAY": "wss://eu1.a4a.network,wss://us1.a4a.network,wss://sg1.a4a.network,wss://ru1.a4a.network",
+        "A4A_MCP_TRANSPORT": "stdio",
+        "A4A_MANDATE_AUTO": "0",
+        "A4A_MANDATE_DAYS": "30"
+      }
+    }
+  }
+}

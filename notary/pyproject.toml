@@ -1,0 +1,26 @@
+[project]
+name = "a4a-notary"
+version = "0.1.4"
+description = "A4A timestamp notary: OpenTimestamps proofs for relay history"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+# opentimestamps is separately licensed LGPL-3.0-or-later; see README.md.
+dependencies = [
+    "a4a-sdk",
+    "opentimestamps>=0.4.5,<0.5",
+    "websockets>=12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[build-system]
+requires = ["setuptools>=84"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["a4a_notary", "a4a_notary.*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

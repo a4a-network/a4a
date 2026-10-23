@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "a4a-sdk"
+version = "0.4.0"
+description = "Python SDK for the A4A (Agent for Agent) protocol"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["agents", "a4a", "protocol", "ai-agents"]
+dependencies = [
+  "coincurve>=19",
+  # This upper bound is a TESTED range, not a precautionary guess. The original
+  # `<14` cap had never been revisited; while it remained, 17.x became current,
+  # forcing modern consumers to downgrade websockets. The complete suite passed
+  # on 14.2, 15.0.1, 16.0, and 17.1 (301/301 offline and 317/317 against a live
+  # relay in the 2026-08-29 audit). Our CI matrix, not users, must catch the next
+  # incompatible major release.
+  "websockets>=12,<18",
+  "pydantic>=2",
+  "httpx>=0.28.1,<1",
+  "bech32>=1.2",
+  # >=50.0.0 is security-relevant: 49.0.0 is affected by PYSEC-2026-3552.
+  # The first Python dependency audit found this on 2026-08-29.
+  "cryptography>=50.0.0",
+]
+
+[project.optional-dependencies]
+# `build` is the frontend used by the distribution check to create wheels and
+# sdists. It used to be undeclared: the check validated only the backend from
+# build-system.requires and failed with a raw `No module named build` error on
+# a clean installation (2026-09-08).
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "build>=1",
+  # Documentation guards must parse actual CommonMark code nodes rather than a
+  # partial fence regex: copyable registry commands are a supply-chain boundary.
+  "markdown-it-py>=4,<5",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["a4a"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = ["integration: requires a live relay in Docker (docker compose up -d)"]
+
+[project.urls]
+Source = "https://github.com/a4a-network/a4a"
+Issues = "https://github.com/a4a-network/a4a/issues"

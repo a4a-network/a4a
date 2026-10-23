@@ -1,0 +1,4 @@
+node_modules/
+# Test-run keys preserve the counterparty address across restart. They must never enter
+# the repository or they would ship in the public slice with secret keys.
+counterpart-keys.json

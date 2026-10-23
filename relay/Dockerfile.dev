@@ -1,0 +1,20 @@
+# Dev-loop builder image for the A4A Rust relay.
+#
+# This is NOT a shipping image (that's relay/Dockerfile, a two-stage release
+# build). This is a fat single-stage image containing rustc/cargo plus the
+# native build dependencies the crate's build.rs / tonic-build need
+# (cmake, protobuf-compiler), meant to be reused across many
+# `docker run ... cargo build|test` invocations with the cargo registry and
+# target/ directory mounted as named volumes for caching.
+#
+# Build once:
+#   docker build -f relay/Dockerfile.dev -t a4a-relay-builder relay/
+#
+# Then use relay/dev.sh to run cargo commands against it.
+FROM docker.io/library/rust:1-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cmake protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app

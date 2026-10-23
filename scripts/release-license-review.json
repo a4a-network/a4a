@@ -1,0 +1,68 @@
+{
+  "schema": "a4a-license-review-v1",
+  "packages": [
+    {
+      "images": [
+        "mcp",
+        "notary",
+        "relay"
+      ],
+      "name": "tzdata",
+      "version": "2026c-0+deb13u1",
+      "license_expression": "LicenseRef-Public-Domain",
+      "evidence_path": "/usr/share/doc/tzdata/copyright",
+      "evidence_sha256": "cb61132bc0fc7b26ef5a82ee18b2fb644a1362f4f286ed980ff22e408471f59a",
+      "source_url": "https://sources.debian.org/src/tzdata/2026c-0%2Bdeb13u1/debian/copyright/",
+      "distribution_notes": [
+        "The Debian copyright file states that the IANA time-zone database is in the public domain.",
+        "Preserve the installed copyright statement as provenance."
+      ]
+    },
+    {
+      "images": [
+        "notary"
+      ],
+      "name": "opentimestamps",
+      "version": "0.4.5",
+      "license_expression": "LGPL-3.0-or-later",
+      "evidence_path": "/usr/local/lib/python3.11/site-packages/opentimestamps-0.4.5.dist-info/LICENSE",
+      "evidence_sha256": "5218fc3db03e0f5ed0edec8912e124c493899e4be83a5bf60d9e5b1286f8f554",
+      "source_url": "https://pypi.org/project/opentimestamps/0.4.5/",
+      "distribution_notes": [
+        "Preserve the upstream LGPL/GPL license texts already copied into /app/licenses.",
+        "Keep the Python library replaceable and provide its corresponding source or a durable source offer with a distributed image."
+      ]
+    },
+    {
+      "images": [
+        "notary"
+      ],
+      "name": "pycryptodomex",
+      "version": "3.23.0",
+      "license_expression": "BSD-2-Clause AND LicenseRef-Public-Domain",
+      "evidence_path": "/usr/local/lib/python3.11/site-packages/pycryptodomex-3.23.0.dist-info/LICENSE.rst",
+      "evidence_sha256": "4e04660d77c1c64e89d79537919fb8240fa21484a7e3db29f358b2c7f84ea073",
+      "source_url": "https://github.com/Legrandin/pycryptodome/blob/v3.23.0/LICENSE.rst",
+      "distribution_notes": [
+        "Preserve the BSD-2-Clause notice and the public-domain dedication carried by the exact wheel.",
+        "Preserve /app/licenses/pycryptodomex-3.23.0-native-NOTICES.txt for individual source-file copyright notices and grants, plus /app/licenses/CC0-1.0.txt and /app/licenses/pycryptodomex-LICENSE-libtom.txt.",
+        "Do not replace this conclusion with the license file from another PyCryptodome revision."
+      ]
+    },
+    {
+      "images": [
+        "notary"
+      ],
+      "name": "python-bitcoinlib",
+      "version": "0.12.2",
+      "license_expression": "LGPL-3.0-or-later",
+      "evidence_path": "/usr/local/lib/python3.11/site-packages/python_bitcoinlib-0.12.2.dist-info/LICENSE",
+      "evidence_sha256": "9e34b52cfa5724a4d87e9f7f47e2699c14d918285a20bf47f5a2a7345999e543",
+      "source_url": "https://pypi.org/project/python-bitcoinlib/0.12.2/",
+      "distribution_notes": [
+        "Preserve the complete LGPL-3.0-or-later text carried by the wheel.",
+        "Keep the Python library replaceable and provide its corresponding source or a durable source offer with a distributed image."
+      ]
+    }
+  ]
+}

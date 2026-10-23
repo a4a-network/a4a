@@ -1,0 +1,378 @@
+name: CI
+
+# Run everything that does not require external services. Tests requiring a live relay
+# use a separate job that builds and starts the relay from this repository.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static-lint:
+    name: Workflow and shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate GitHub Actions workflow
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          -color
+      - name: Validate public shell scripts
+        run: >-
+          docker run --rm -v "$PWD:/src:ro"
+          koalaman/shellcheck@sha256:bb596a0d169b85ddd81d8b6d3a2ff6d5baf5fca10b97f575ebc647c3dff62b3d
+          /src/relay/dev.sh
+          /src/scripts/test-mcp.sh
+          /src/scripts/test-agent.sh
+          /src/scripts/test-sdk.sh
+
+  sdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Boundaries of the VERIFIED websockets range. The `<14` ceiling remained from
+        # the first commit until 17.x became current, which would silently conflict with
+        # modern projects. The matrix catches the next major version here rather than
+        # in user installations.
+        websockets-version: ["websockets==12.0", "websockets"]
+    name: SDK (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install SDK
+        run: |
+          python -m pip install --require-hashes -r scripts/container-build-requirements.lock
+          pip install -e "./sdk-python[dev]"
+      - name: Report websockets version
+        run: |
+          pip install -q --upgrade "${{ matrix.websockets-version }}"
+          python -c "import websockets; print('websockets', websockets.__version__)"
+      - name: Test SDK
+        run: bash scripts/test-sdk.sh
+
+  agreement-interop:
+    name: Agreement v2 (Python / JavaScript, offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install test dependencies
+        run: |
+          pip install "./sdk-python[dev]"
+          npm ci --prefix interop/spec-client --ignore-scripts --no-audit --no-fund
+      - name: Check fixed bytes and strict inputs
+        run: |
+          python -m pytest -q sdk-python/tests/test_agreement_vectors.py
+          npm test --prefix interop/spec-client
+      - name: Cross-verify signatures without a relay
+        run: python interop/check-signatures.py
+      - name: Verify v0.4 app and messenger test vectors (Python, JS/TS & JVM/Kotlin)
+        run: |
+          python interop/test-vectors/verify_vectors.py
+          node interop/reference-ts/verify-vectors.mjs
+          java interop/reference-kotlin/VerifyVectorsJvm.java
+
+  mcp-server:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both major versions of `mcp`: 2.x renamed FastMCP to MCPServer, causing a
+        # ModuleNotFoundError for new users following our installation instructions.
+        # Our environment worked only because it predated 2.x; time accidentally pinned
+        # the version. The matrix prevents that from recurring on the next major release.
+        mcp-version: ["mcp<2", "mcp"]
+    name: MCP server (${{ matrix.mcp-version }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install ./sdk-python ./mcp-server pytest pytest-asyncio
+          pip install -q --upgrade "${{ matrix.mcp-version }}"
+      - name: Report MCP version
+        run: python -c "import importlib.metadata as m; print('mcp', m.version('mcp'))"
+      - name: Test
+        working-directory: mcp-server
+        run: python -m pytest -q
+
+  mcp-adapter-profiles:
+    name: MCP optional adapter profiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install the verified adapter profiles
+        run: pip install ./sdk-python "./mcp-server[channel,host-signal]" pytest pytest-asyncio
+      - name: Exercise enabled adapters on their supported transports
+        working-directory: mcp-server
+        run: python -m pytest -q -m "requires_channel or requires_host_signal"
+
+  agent-service:
+    name: Project agent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install ./sdk-python ./agent-service pytest pytest-asyncio
+      - name: Test
+        working-directory: agent-service
+        run: python -m pytest -q
+
+  notary:
+    name: Timestamp notary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install ./sdk-python ./notary pytest pytest-asyncio
+      - name: Test
+        working-directory: notary
+        run: python -m pytest -q
+
+  python-images:
+    name: Container (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: MCP server
+            dockerfile: mcp-server/Dockerfile
+            image: a4a-mcp:ci
+            user: "10001"
+            notices: /usr/local/lib/python3.11/site-packages/cryptography-50.0.2.dist-info/licenses/LICENSE
+          - service: Timestamp notary
+            dockerfile: notary/Dockerfile
+            image: a4a-notary:ci
+            user: "10001"
+            notices: >-
+              /app/licenses/pycryptodomex-LICENSE.rst
+              /app/licenses/python-bitcoinlib-LICENSE.txt
+              /app/licenses/python-opentimestamps-LICENSE.txt
+              /app/licenses/LGPL-3.0.txt
+              /app/licenses/GPL-3.0.txt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install hash-checked metadata verifier tooling on the CI host
+        run: |
+          python -m venv /tmp/a4a-runtime-check
+          /tmp/a4a-runtime-check/bin/python -m pip install --require-hashes -r scripts/container-build-requirements.lock
+      - name: Build image from the documented root context
+        run: docker build -f "${{ matrix.dockerfile }}" -t "${{ matrix.image }}" .
+      - name: Require an unprivileged runtime user
+        run: test "$(docker image inspect "${{ matrix.image }}" --format '{{.Config.User}}')" = "${{ matrix.user }}"
+      - name: Verify the locked runtime graph is internally consistent
+        run: |
+          docker run --rm --network none --read-only --entrypoint python \
+            -v "$PWD/scripts/check-python-runtime-graph.py:/check-runtime.py:ro" \
+            "${{ matrix.image }}" -I -B /check-runtime.py --snapshot > /tmp/a4a-runtime.json
+          /tmp/a4a-runtime-check/bin/python -I -B scripts/check-python-runtime-graph.py \
+            --verify /tmp/a4a-runtime.json --lock "$(dirname '${{ matrix.dockerfile }}')/requirements.container.lock" \
+            --base-lock scripts/container-build-requirements.lock
+      - name: Require material third-party notices in the runtime image
+        run: |
+          docker run --rm --network none --entrypoint sh "${{ matrix.image }}" \
+            -c 'for path; do test -s "$path" || exit 1; done' sh ${{ matrix.notices }}
+
+  relay:
+    name: Relay (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake protobuf-compiler
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: relay
+      - name: Build
+        working-directory: relay
+        run: cargo build --locked
+      - name: Test
+        working-directory: relay
+        run: cargo test --locked
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit relay
+        working-directory: relay
+        run: >-
+          cargo audit
+          --ignore RUSTSEC-2026-0346
+          --ignore RUSTSEC-2026-0347
+          --ignore RUSTSEC-2026-0348
+          --ignore RUSTSEC-2026-0349
+          --ignore RUSTSEC-2026-0381
+          --ignore RUSTSEC-2026-0382
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: pip-audit
+        # Rust was audited from the start while Python was not. As a result,
+        # cryptography 49.0.0 with PYSEC-2026-3552 survived until 2026-08-29 despite
+        # being an SDK runtime dependency rather than a build tool. Keep this check in CI.
+        run: pip install pip-audit
+      - name: Audit Python packages
+        run: |
+          set -e
+          for pkg in sdk-python mcp-server agent-service notary; do
+            echo "--- $pkg ---"
+            python -m venv "/tmp/venv-$pkg"
+            "/tmp/venv-$pkg/bin/pip" install -q --upgrade pip setuptools
+            "/tmp/venv-$pkg/bin/pip" install -q ./sdk-python
+            [ "$pkg" = sdk-python ] || "/tmp/venv-$pkg/bin/pip" install -q "./$pkg"
+            "/tmp/venv-$pkg/bin/pip" install -q pip-audit
+            # `--skip-editable` is unnecessary because packages are installed normally,
+            # not with `-e`. pip-audit skips our packages because they are absent from
+            # PyPI and reports that explicitly.
+            "/tmp/venv-$pkg/bin/pip-audit" --progress-spinner off
+          done
+      - name: Audit exact release-container locks
+        run: |
+          pip-audit --progress-spinner off --no-deps -r scripts/container-build-requirements.lock
+          pip-audit --progress-spinner off --no-deps -r scripts/container-pip-requirements.lock
+          pip-audit --progress-spinner off --no-deps -r mcp-server/requirements.container.lock --ignore-vuln PYSEC-2026-4320 --ignore-vuln CVE-2026-114603
+          pip-audit --progress-spinner off --no-deps -r notary/requirements.container.lock --ignore-vuln PYSEC-2026-4320 --ignore-vuln CVE-2026-114603
+
+  live:
+    name: Tests against a live relay
+    runs-on: ubuntu-latest
+    needs: [sdk, relay]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install relay build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake protobuf-compiler libsqlite3-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: relay
+      - name: Build relay image and diagnostic tools
+        run: |
+          cargo build --manifest-path relay/Cargo.toml --release --locked
+          mkdir -p build/relay-ci
+          cp relay/target/release/nostr-rs-relay build/relay-ci/nostr-rs-relay
+          cat > build/relay-ci/Dockerfile <<'EOF'
+          FROM docker.io/library/debian:trixie-slim@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c AS base
+          RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 tzdata libsqlite3-0 \
+              && rm -rf /var/lib/apt/lists/* \
+              && groupadd -g 1000 appuser \
+              && useradd -u 1000 -g appuser appuser \
+              && mkdir -p /usr/src/app/db \
+              && chown -R appuser:appuser /usr/src/app \
+              && find / -xdev -perm /6000 -exec chmod a-s {} + \
+              && test -z "$(find / -xdev -perm /6000 -print)"
+
+          FROM scratch AS runtime-tools
+          COPY --from=base / /
+          ENV TZ=Etc/UTC APP_USER=appuser APP_DATA=/usr/src/app/db
+          USER appuser
+          WORKDIR /usr/src/app
+
+          FROM base AS relay-fs
+          COPY --chown=appuser:appuser nostr-rs-relay /usr/src/app/nostr-rs-relay
+          RUN chmod 0755 /usr/src/app/nostr-rs-relay \
+              && find / -xdev -perm /6000 -exec chmod a-s {} +
+
+          FROM scratch AS runtime
+          COPY --from=relay-fs / /
+          EXPOSE 8080
+          ENV TZ=Etc/UTC APP_USER=appuser APP_DATA=/usr/src/app/db RUST_LOG=info,nostr_rs_relay=info
+          USER appuser
+          WORKDIR /usr/src/app
+          HEALTHCHECK --interval=5s --timeout=3s --start-period=2s --retries=10 \
+              CMD ["./nostr-rs-relay", "--healthcheck", "--healthcheck-address", "127.0.0.1:8080"]
+          CMD ["./nostr-rs-relay", "--db", "/usr/src/app/db"]
+          EOF
+          docker build -f build/relay-ci/Dockerfile --target runtime-tools -t a4a-relay-tools:ci build/relay-ci
+          docker build -f build/relay-ci/Dockerfile --target runtime -t a4a-relay:ci build/relay-ci
+      - name: Require relay runtime without privilege bits
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --entrypoint sh a4a-relay:ci -c '
+              set -eu
+              found=
+              while read -r label values; do
+                case "$label" in Uid:) set -- $values; test "$1" -eq 1000; found=yes;; esac
+              done < /proc/self/status
+              test "$found" = yes'
+          docker image save --output /tmp/a4a-relay-ci.tar a4a-relay:ci
+          python3 - <<'PY'
+          import json, tarfile
+          with tarfile.open('/tmp/a4a-relay-ci.tar') as archive:
+              manifest = json.load(archive.extractfile('manifest.json'))
+              assert len(manifest) == 1
+              for layer in manifest[0]['Layers']:
+                  with tarfile.open(fileobj=archive.extractfile(layer)) as payload:
+                      for member in payload:
+                          assert not member.mode & 0o6000, f'Privilege bits: {layer}:{member.name}'
+          PY
+      - name: Start relay
+        run: |
+          docker run -d --name a4a-relay-ci -p 127.0.0.1:8080:8080 \
+            -v "$PWD/relay/config.toml:/usr/src/app/config.toml:ro" a4a-relay:ci
+          for _ in {1..30}; do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' a4a-relay-ci)"
+            test "$status" = healthy && exit 0
+            test "$status" = unhealthy && exit 1
+            sleep 2
+          done
+          echo "relay container did not become healthy" >&2
+          exit 1
+      - name: Validate operator-visible runtime contract
+        run: >-
+          python scripts/check-relay-runtime-contract.py
+          --base-url http://127.0.0.1:8080
+          --config relay/config.toml
+      - name: Install SDK
+        run: pip install -e "./sdk-python[dev]"
+      - name: Verify recovery, two-relay failover, and durable inbox catch-up
+        run: >-
+          python scripts/local-relay-safety-check.py --image a4a-relay:ci
+          --diagnostic-image a4a-relay-tools:ci --relay-only
+      - name: Run full suite including WebSocket path
+        run: bash scripts/test-sdk.sh --live
+      - name: Validate project agent
+        run: |
+          pip install ./agent-service
+          A4A_RELAY_URL=ws://localhost:8080 python agent-service/live_check.py
+      - name: Show relay logs on failure
+        if: failure()
+        run: |
+          for path in build/relay-ci/*.log build/relay-tools-ci/*.log; do
+            if test -f "$path"; then cat "$path"; fi
+          done
+          if docker inspect a4a-relay-ci >/dev/null 2>&1; then
+            docker logs a4a-relay-ci
+          fi

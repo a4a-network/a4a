@@ -1,0 +1,40 @@
+# Content that must not enter container images.
+#
+# Measurements on 2026-09-05 showed that `COPY sdk-python/` and `COPY mcp-server/`
+# pulled 102 MB and 129 MB into image layers, including 91 MB and 119 MB virtual
+# environments plus caches and build directories. Removing those directories later in
+# the same layer did not reduce the image: consumers still downloaded 231 MB of waste to
+# obtain 69 MB of packages.
+.venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/*.egg-info/
+build/
+**/build/
+dist/
+**/dist/
+
+# Local and internal content has no place in runtime images. Some of it is also outside
+# the public repository slice.
+.git/
+.github/
+.claude/
+.superpowers/
+docs/
+site/
+# Preparation stages need the installer/backend locks and the runtime cleanup helper.
+# Keep every other script outside the context; do not allow the entire scripts/ tree.
+scripts/*
+!scripts/container-build-requirements.lock
+!scripts/container-pip-requirements.lock
+!scripts/prepare-python-runtime.py
+!scripts/prepare-python-filesystem.py
+!scripts/prepare-relay-runtime.py
+agent-service/
+relay/target/
+**/node_modules/
+*.log
+*.tar
+*.tar.gz

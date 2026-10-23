@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  A4A inbox receiver, launchd (macOS).
+
+  Install in ~/Library/LaunchAgents/com.a4a.receiver.plist as a USER AGENT,
+  not a system daemon. The receiver holds one person's private key and decrypted
+  correspondence; it does not belong in the system domain with root privileges.
+
+  Install:
+    cp com.a4a.receiver.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.a4a.receiver.plist
+  Check: launchctl list | grep com.a4a.receiver
+  Stop:  launchctl unload ~/Library/LaunchAgents/com.a4a.receiver.plist
+
+  Replace the paths below with your own. launchd does not expand ~ or read the
+  shell profile, so every path must be absolute.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.a4a.receiver</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/a4a/venv/bin/python</string>
+    <string>-I</string>
+    <string>-X</string>
+    <string>utf8</string>
+    <string>-m</string>
+    <string>a4a_mcp</string>
+    <string>inbox-watch</string>
+    <string>--forever</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Identity directory: identity.json, inbox-policy.json, and the inbox database. -->
+    <key>A4A_HOME</key>
+    <string>/Users/CHANGEME/.a4a/agent</string>
+    <!-- Comma-separated nodes: the receiver reads from ALL of them. This is the only
+         protection against message loss when one node fails. -->
+    <key>A4A_RELAY</key>
+    <string>wss://relay.example.org</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
+
+  <!-- Keep running and restart after a crash. -->
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Delay between restarts. Without it, a bad configuration creates a crash loop
+       that floods the log and hides the cause. -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <!-- Logs. Notifications go to stdout line by line; errors go to stderr. -->
+  <key>StandardOutPath</key>
+  <string>/Users/CHANGEME/Library/Logs/a4a-receiver.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/CHANGEME/Library/Logs/a4a-receiver.err.log</string>
+</dict>
+</plist>

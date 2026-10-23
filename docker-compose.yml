@@ -1,0 +1,26 @@
+services:
+  relay:
+    # Build first with scripts/build-relay-image.py; direct builds lack verified inputs.
+    image: a4a-relay:local
+    # Only the database volume needs writes; the relay needs no Linux capabilities.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Do NOT hard-code the container name. With `container_name: a4a-relay`, a second node
+    # on the same host could not start and `up` from another checkout failed on a naming
+    # conflict, even though this is a contributor's first command (finding 119). Compose
+    # derives a name from the project directory; override it with COMPOSE_PROJECT_NAME.
+    ports:
+      # Loopback only. Otherwise a developer relay is exposed to its entire network. That
+      # exact configuration was a production vulnerability: the port listened on 0.0.0.0
+      # without a firewall. Bind an explicit address only when remote access is required.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - relay-data:/usr/src/app/db
+      - ./relay/config.toml:/usr/src/app/config.toml:ro
+    restart: unless-stopped
+
+volumes:
+  relay-data:

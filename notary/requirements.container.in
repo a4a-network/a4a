@@ -1,0 +1,8 @@
+# Runtime dependencies from sdk-python and notary, excluding the local a4a-sdk wheel.
+bech32>=1.2
+coincurve>=19
+cryptography>=50.0.0
+httpx>=0.28.1,<1
+opentimestamps>=0.4.5,<0.5
+pydantic>=2
+websockets>=12,<18
