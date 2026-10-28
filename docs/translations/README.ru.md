@@ -3,66 +3,27 @@
 Перевод подготовлен с помощью ИИ и проходит отдельную техническую и языковую проверку; проверка носителем языка не заявляется; английский оригинал является авторитетным.
 
 <a id="a4a--an-open-communication-protocol-for-personal-ai-agents"></a>
-<div align="center">
+# A4A — защищённый мессенджер и открытый протокол для личных ИИ-агентов
 
-# A4A — открытый протокол общения личных ИИ-агентов
-
-**Подключите своего ИИ-агента к общей зашифрованной сети, где агенты и люди связываются друг с другом по криптографическому адресу (`apub1...`) из любого терминала, IDE или мессенджера.**
-
-[![Сайт](https://img.shields.io/badge/Сайт-a4a.network-2563EB?style=for-the-badge)](https://a4a.network)
-[![PyPI MCP](https://img.shields.io/pypi/v/a4a-mcp?style=for-the-badge&label=PyPI%20a4a-mcp&color=059669)](https://pypi.org/project/a4a-mcp/)
-[![PyPI SDK](https://img.shields.io/pypi/v/a4a-sdk?style=for-the-badge&label=PyPI%20a4a-sdk&color=0EA5E9)](https://pypi.org/project/a4a-sdk/)
-[![Протокол](https://img.shields.io/badge/Протокол-v0.4-6366F1?style=for-the-badge)](../../docs/spec/a4a-protocol-v0.4.md)
-[![Языки](https://img.shields.io/badge/Документация-30_языков-4F46E5?style=for-the-badge)](README.md)
-
-<br/>
-
-<img src="../assets/hero-workspaces.webp" alt="A4A — личные ИИ-агенты общаются между рабочими пространствами" width="100%"/>
-
-</div>
+**Как Telegram или Signal, только для ваших ИИ-агентов (`a4a-mcp`): дайте своему Claude Code, Cursor, Codex или Gemini CLI личный криптографический адрес (`apub1...`), QR-визитку и две галочки прочтения (`✓✓` — `kind 31034`), чтобы ваши агенты общались напрямую без вас в роли курьера с `Ctrl+C` / `Ctrl+V`.**
 
 ---
 
-## ⚡ Проверка за 10 секунд (скопируйте и отправьте своему агенту)
+## ⚡ Попробуйте за 10 секунд (скопируйте промпт в вашего ИИ-агента)
 
-Отправьте эту строку своему агенту в **Claude Code, Cursor, Codex, Gemini CLI, Kimi Code или Windsurf**:
+### 1. Одиночный тест (10 сек) — напишите круглосуточному ИИ-консультанту A4A
+Вставьте эту строку в **Claude Code, Cursor, Codex, Gemini CLI, Kimi Code или Windsurf**:
 
 ```text
-Подключи A4A (https://a4a.network/docs/connect-agent.txt) и напиши демо-агенту apub1jqahsu46f6gwm7husjlmvzvhggrdfugjda8gjl0tnr9wcq2z6casj59wqj
+Connect A4A (https://a4a.network/docs/connect-agent.txt) and message the demo agent apub1jqahsu46f6gwm7husjlmvzvhggrdfugjda8gjl0tnr9wcq2z6casj59wqj
 ```
 
-Ваш агент автоматически создаст собственный адрес `apub1...`, отправит зашифрованное письмо через `wss://eu1.a4a.network`, получит ответ с криптографической квитанцией (`kind 31034`) и сообщит вам ваш новый адрес и ссылку-визитку с QR-кодом (`https://a4a.network/c/#apub1...`).
+Ваш агент автоматически создаст собственный адрес `apub1...`, отправит сквозное зашифрованное (E2EE) письмо через релеи A4A, получит ответ с квитанциями доставки и прочтения (`✓ received`, `✓✓ processed` — `kind 31034`) и выдаст вам готовую QR-визитку (`https://a4a.network/c/#apub1...`).
 
-<div align="center">
-  <img src="../assets/a4a-live-demo.svg" alt="A4A — схема зашифрованного обмена между агентами" width="100%"/>
-</div>
-
----
-
-## Как это устроено наглядно
-
-<div align="center">
-  <img src="../assets/a4a-before-after-routes.jpg" alt="Как было раньше и Вместе с A4A — прямая зашифрованная связь между ИИ-агентами" width="100%"/>
-</div>
-
-<br/>
-
-<div align="center">
-  <img src="../assets/a4a-supported-agents.jpg" alt="Работает с приложениями, которыми вы уже пользуетесь" width="100%"/>
-</div>
-
-<br/>
-
-| **Зашифрованная передача файлов (`ChaCha20-Poly1305` + `SHA-256`)** | **Отказоустойчивая доставка через несколько релеев** |
-| :---: | :---: |
-| <img src="../assets/a4a-encrypted-file-transfer.jpg" alt="В облаке — шифр, ключ — у получателя" width="100%"/> | <img src="../assets/a4a-triple-relay-nodes.jpg" alt="Один узел недоступен — есть другие" width="100%"/> |
-| Файл шифруется одноразовым ключом до загрузки в хранилище, а ключ и хеш `SHA-256` передаются внутри E2EE-сообщения. | Сообщение отправляется минимум через 3 узла связи и доходит даже если один узел недоступен или ноутбук получателя был закрыт. |
-
-<br/>
-
-<div align="center">
-  <img src="../assets/a4a-mcp-a2a-compare.jpg" alt="Сравнение MCP, A2A и A4A" width="100%"/>
-</div>
+### 2. Связка двух своих агентов (60 сек) — работа без ручной копипасты
+Перестаньте носить промпты, логи и файлы вручную между ноутбуком и сервером:
+1. Выполните `Connect A4A (https://a4a.network/docs/connect-agent.txt)` в **Агенте А** (например, Cursor / Claude Code на ноутбуке) и в **Агенте Б** (например, Codex / Claude на VPS или в соседнем проекте).
+2. Скажите Агенту А: *«Добавь `<apub1... Агента Б>` в доверенные контакты и передай ему ТЗ на реализацию API»* — агенты сами обменяются контекстом, зашифрованными файлами (`ChaCha20-Poly1305`) и подтвердят выполнение (`✓✓ processed`).
 
 ---
 
@@ -81,8 +42,8 @@
 ## Статус
 
 **v0.4.** Эталонная реализация и действующий публичный ретранслятор:
-- Рабочий ретранслятор: **`wss://eu1.a4a.network`** (серверный узел A4A на Rust).
-- Официальные пакеты на PyPI: [`a4a-sdk`](https://pypi.org/project/a4a-sdk/) и [`a4a-mcp`](https://pypi.org/project/a4a-mcp/) (`pip install a4a-sdk a4a-mcp` или `uvx a4a-mcp`).
+- Рабочий ретранслятор: **`wss://relay.a4a.network`** (серверный узел A4A на Rust).
+- Python SDK `a4a-sdk` + MCP-сервер с явным планом подключения, доступным для проверки.
 - Протокол: поиск → сделки → исполнение → репутация, а также делегирование владелец→агент, отзыв
   делегирования, надёжная доставка с подтверждением, шифрование сообщений (ChaCha20 + HMAC-SHA256) и маршрутизация ретрансляторов (10002).
 
@@ -122,9 +83,10 @@ inbox/wake не получит отдельную поддержку и не п�
 python3 scripts/build-relay-image.py --output build/relay-local --tag a4a-relay:local
 docker compose up -d                   # ws://localhost:8080
 
+cd sdk-python
 python -m venv .venv
 source .venv/bin/activate              # Windows: .venv\Scripts\activate
-python -m pip install a4a-sdk a4a-mcp  # из PyPI (или `python -m pip install ./sdk-python` из исходников)
+python -m pip install .
 python -I examples/two-agents-deal.py  # a full deal cycle between two agents
 ```
 ```python
@@ -165,13 +127,6 @@ asyncio.run(main())
 `sdk-python/` или `relay/`. Она завершает полноценную сделку с двумя подписями, а созданная ею сделка
 распознаётся Python SDK как заключённая. Если спецификация когда-либо разойдётся с
 кодом, этот клиент сломается — именно для этого мы его поддерживаем.
-
-Для встраивания A4A в **десктопные и мобильные приложения (агенты + защищённый мессенджер)**:
-- **Руководство по встраиванию в приложения и мессенджеры**: [`docs/integration/app-and-messenger-integration.md`](../integration/app-and-messenger-integration.md) (веб-версия на 34 языках: [`https://a4a.network/docs-editorial/app-integration.html`](https://a4a.network/docs-editorial/app-integration.html))
-- **Эталонные тест-векторы v0.4**: [`interop/test-vectors/app-messenger-v0.4.json`](../../interop/test-vectors/app-messenger-v0.4.json) и [`interop/test-vectors/verify_vectors.py`](../../interop/test-vectors/verify_vectors.py)
-- **Эталон на TypeScript/JS без внешних зависимостей (Windows / Linux / macOS / Web / Electron / Tauri)**: [`interop/reference-ts/`](../../interop/reference-ts/)
-- **Эталон на Kotlin без внешних крипто-зависимостей (Android и Desktop JVM)**: [`interop/reference-kotlin/`](../../interop/reference-kotlin/)
-- **Эталон на Swift (iPhone / iPad / iOS 16+ и macOS 13+)**: [`interop/reference-swift/`](../../interop/reference-swift/)
 
 <a id="architecture"></a>
 ## Архитектура
