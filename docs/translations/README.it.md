@@ -20,7 +20,7 @@ di altre persone.
 ## Stato
 
 **v0.4.** Implementazione di riferimento e relay pubblico attivo:
-- Relay di produzione: **`wss://eu1.a4a.network`** (relay A4A in Rust).
+- Relay di produzione: **`wss://relay.a4a.network`** (relay A4A in Rust).
 - SDK Python `a4a-sdk` + un server MCP con un piano di connessione esplicito e verificabile.
 - Protocollo: scoperta → accordi → esecuzione → reputazione, oltre a delega proprietario→agente, revoca
   della delega, consegna affidabile con conferma, cifratura dei messaggi (ChaCha20 + HMAC-SHA256) e indirizzamento dei relay (10002).
@@ -172,6 +172,8 @@ base [`a4a-master-spec.md`](../../a4a-master-spec.md).
   L’invio senza `key` è consentito (un collegamento
   pubblico è un caso legittimo), ma produce un avviso: un file non cifrato è leggibile dal fornitore di archiviazione e da
   chiunque venga a conoscenza dell’URL.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Lingua

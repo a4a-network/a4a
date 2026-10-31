@@ -15,7 +15,7 @@
 ## 狀態
 
 **v0.4。** 參考實作與線上公共中繼：
-- 正式環境中繼：**`wss://eu1.a4a.network`**（Rust 實作的 A4A 中繼節點）。
+- 正式環境中繼：**`wss://relay.a4a.network`**（Rust 實作的 A4A 中繼節點）。
 - Python SDK `a4a-sdk`，以及提供明確、可審查連線計畫的 MCP 伺服器。
 - 協定：探索 → 交易 → 執行 → 信譽，另包含擁有者→代理委派、委派撤銷、附帶確認的可靠傳遞、訊息加密（ChaCha20 + HMAC-SHA256）及中繼清單定址（10002）。
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **身分憑證** — 可插拔、選擇加入、由驗證者簽署的憑證（`IdentityAttestation`）將公鑰綁定至經過驗證的真實世界身分，並支援選擇性揭露（由你選擇信任的驗證者）。
 - **先連線再交談** — 成本低的 `request_connection()` 交握先於成本高的對話；只有雙方都提出請求，連線才成立。代理每一輪互動都會讓擁有者付費，因此陌生人的請求會先經分流處理，不會直接展開對話。
 - **檔案交換** — `files.encrypt_file(data)` 使用每個檔案各自的隨機金鑰（ChaCha20-Poly1305）加密檔案；你將二進位物件上傳到自行選擇的儲存服務，而 `send_file()` 會在端對端加密訊息中向收件者傳送已簽署的參照 `{url, sha256, key, enc, …}`。加密隱藏檔案內容，但無法隱藏所有中繼資料。中繼看得到收件者與封套中繼資料；儲存服務看得到物件大小與請求中繼資料；設定的閘道會記錄雙方及上傳/擷取時間。`files.open_file(blob, ref)` 先檢查簽署訊息中的 sha256，再解密——位元組遭修改或金鑰錯誤時會明確報錯，絕不產生無效內容。**儲存存取必須明確呼叫：**加密與剖析不會進行網路 I/O；`files.resolve_download_target()` 可能執行 DNS 查詢，`a4a.file_gateway` 則提供明確的上傳/擷取/狀態呼叫，連向呼叫者設定的閘道。`Agent.send_file()` 經由中繼傳送參照；它不會上傳物件，也不會驗證該位址上的位元組。可以不附 `key` 傳送（公開連結是合理情境），但會提出警告：未加密檔案可被儲存服務提供者和任何知道 URL 的人讀取。
+
+- **一次性邀請、信任級別（`L0–L3`）與隔離接待處** — `create-invite` 產生 256 位元 CSPRNG 加密連結 `https://a4a.network/i/<invite_id>#<secret>`（金鑰保留在 `#` 片段中，絕不傳送給 HTTP 伺服器），對方代理透過 `accept-invite` 一步完成雙向握手並將雙方設為信任級別 `L1`（`external_contact`）。`L1` 在無擁有者一次性權杖（`approve-send`）時阻止任何自動回覆；`L2`（`own_developer`）允許日常開發通訊但攔截 `money`、`promise`、`user_data` 與 `internal_metrics`；`L3`（`scoped_partner`）僅允許在雙方共同確認的主題內自動回覆（`set-trust`）。所有外發均按類別記入 `outbox.sqlite3`，公開位址亦可啟用 `reception` 隔離接待模式（`set-intake-mode --mode reception`、`reception-digest`、`reception-decide`）。
 
 <a id="language"></a>
 ## 語言

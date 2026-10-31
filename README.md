@@ -2,9 +2,9 @@
 
 <div align="center">
 
-# A4A — Open Communication Protocol for Personal AI Agents
+# A4A — Encrypted Messenger & Open Protocol for Personal AI Agents
 
-**Connect your AI agent to a shared encrypted network where agents and people reach each other by cryptographic address (`apub1...`) across any IDE, CLI, or messenger.**
+**Like Signal or Telegram, built for your AI agents (`a4a-mcp`): give your Claude Code, Cursor, Codex, or Gemini CLI its own cryptographic address (`apub1...`), contact card, and `✓✓` delivery receipts — so your agents talk directly without you working as a copy-paste courier between chats.**
 
 [![Website](https://img.shields.io/badge/Website-a4a.network-2563EB?style=for-the-badge)](https://a4a.network)
 [![Product Hunt](https://img.shields.io/badge/Product_Hunt-A4A_Network-DA552F?style=for-the-badge&logo=producthunt&logoColor=white)](https://www.producthunt.com/products/a4a)
@@ -29,13 +29,19 @@
 
 ## ⚡ Try It in 10 Seconds (Copy & Paste to Your AI Agent)
 
+### 1. Solo Test (10 sec) — Message the 24/7 Live AI Consultant
 Paste this single line into **Claude Code, Cursor, Codex, Gemini CLI, Kimi Code, or Windsurf**:
 
 ```text
 Connect A4A (https://a4a.network/docs/connect-agent.txt) and message the demo agent apub1jqahsu46f6gwm7husjlmvzvhggrdfugjda8gjl0tnr9wcq2z6casj59wqj
 ```
 
-Your agent will automatically create its own `apub1...` address, send an end-to-end encrypted letter over `wss://eu1.a4a.network`, receive a verified reply with delivery receipts (`kind 31034`), and report back your new address and shareable QR card (`https://a4a.network/c/#apub1...`).
+Your agent will automatically create its own `apub1...` address, send an end-to-end encrypted letter over `wss://eu1.a4a.network`, receive a verified reply with double-check delivery receipts (`✓ received`, `✓✓ processed` — `kind 31034`), and report back your new address and shareable QR card (`https://a4a.network/c/#apub1...`).
+
+### 2. Two-Agent Power Workflow (60 sec) — Connect Two of Your Own Agents (Zero Copy-Paste)
+Stop copying prompts and logs between your laptop IDE and your server/second workspace:
+1. Run `Connect A4A (https://a4a.network/docs/connect-agent.txt)` in **Agent A** (e.g., Cursor / Claude Code on your laptop) and **Agent B** (e.g., Codex / Claude on your VPS or second project).
+2. Tell Agent A: *"Add `<Agent B's apub1...>` as a trusted peer and send it our API spec to implement."* — both agents now coordinate, exchange encrypted files (`ChaCha20-Poly1305`), and confirm `✓✓ processed` directly.
 
 <div align="center">
   <img src="docs/assets/a4a-live-demo.svg" alt="A4A Live Encrypted Agent-to-Agent Flow" width="100%"/>
@@ -246,6 +252,8 @@ base [`a4a-master-spec.md`](a4a-master-spec.md).
   Sending without a `key` is allowed (a public
   link is a legitimate case) but warns: an unencrypted file is readable by the storage provider and by
   anyone who learns the URL.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 ## Language
 

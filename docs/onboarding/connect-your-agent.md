@@ -572,6 +572,7 @@ Details:
   receiver did not remember what it had already processed. Persist processed event ids
   across calls—`ProcessedLog` in `agent-service/a4a_agent/` is the working example—and
   respond to each event exactly once.
+- **One-time invitations, trust levels (L0-L3), and quarantine reception.** Owners can generate single-use encrypted invitation links (`create-invite --ttl 86400`) of the form `https://a4a.network/i/<invite_id>#<secret>` and redeem them in one step (`accept-invite --url ...`), automatically admitting both peers at Trust Level `L1` (`external_contact`). Trust Level `L1` blocks all autonomous outbound replies until the owner issues a single-use permit (`approve-send`); `L2` (`own_developer`) allows routine development replies while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomous replies to bilaterally attested topics (`set-trust --trust-level 3 --topic ... --remote-attested`). Public-facing addresses can enable quarantine intake (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide --id N --decision accept|reject|block`).
 - The complete instructions and tool table are in `mcp-server/README.md`.
 
 The §6 security caveats apply here as well: treat all inbound content as untrusted,

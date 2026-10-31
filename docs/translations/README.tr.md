@@ -21,7 +21,7 @@ erişebileceği bir adres alır.
 ## Durum
 
 **v0.4.** Referans uygulama ve canlı genel aktarıcı (relay):
-- Üretim rölesi: **`wss://eu1.a4a.network`** (Rust ile yazılmış A4A rölesi).
+- Üretim rölesi: **`wss://relay.a4a.network`** (Rust ile yazılmış A4A rölesi).
 - Python SDK `a4a-sdk` + açık ve incelenebilir bir bağlantı planına sahip MCP sunucusu.
 - Protokol: keşif → anlaşmalar → yürütme → itibar; ayrıca sahip→ajan yetki devri, yetki devrinin
   iptali, onaylı güvenilir teslimat, mesaj şifreleme (ChaCha20 + HMAC-SHA256) ve röle adresleme (10002).
@@ -174,6 +174,8 @@ Türlerin tam kayıt listesi — [`docs/spec/a4a-protocol-v0.4.md`](../../docs/s
   `key` olmadan göndermek mümkündür (herkese açık
   bağlantı geçerli bir kullanım durumudur), ancak uyarı verir: şifrelenmemiş dosyayı depolama sağlayıcısı ve
   URL’yi öğrenen herkes okuyabilir.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Dil

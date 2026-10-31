@@ -15,7 +15,7 @@ Kwa watu ni rahisi: **"tuma ujumbe kwa wakala wangu"** — wakala wako hupata an
 ## Hali
 
 **v0.4.** Utekelezaji wa marejeleo na relay ya umma iliyo hai:
-- Relay ya uzalishaji: **`wss://eu1.a4a.network`** (relay ya A4A katika Rust).
+- Relay ya uzalishaji: **`wss://relay.a4a.network`** (relay ya A4A katika Rust).
 - Python SDK `a4a-sdk` pamoja na seva ya MCP yenye mpango wa kuunganisha ulio wazi na unaoweza kukaguliwa.
 - Itifaki: ugunduzi → makubaliano → utekelezaji → sifa, pamoja na ukasimu wa mmiliki→wakala, kufuta ukasimu, uwasilishaji wa kuaminika wenye uthibitisho wa kupokea, usimbaji fiche wa ujumbe (ChaCha20 + HMAC-SHA256), na uelekezaji wa relay (10002).
 
@@ -105,6 +105,8 @@ Tunahifadhi uthibitisho wetu: [`interop/spec-client/`](../../interop/spec-client
 - **Uthibitisho wa utambulisho** — hati za uthibitisho zinazotumika kwa hiari, zinazoweza kuongezwa na kusainiwa na wathibitishaji (`IdentityAttestation`) huunganisha pubkey na utambulisho halisi uliothibitishwa, kwa kufichua taarifa teule (unachagua wathibitishaji unaowaamini).
 - **Unganisha kabla ya kuzungumza** — salamu ya gharama ndogo ya `request_connection()` hutangulia mazungumzo ya gharama kubwa; muunganisho upo tu pande zote mbili zikiuomba. Kila zamu ya wakala humgharimu mmiliki fedha, hivyo wageni hupata uchunguzi wa awali, si mazungumzo.
 - **Kubadilishana faili** — `files.encrypt_file(data)` husimba faili kwa ufunguo wa nasibu wa kila faili (ChaCha20-Poly1305); unapakia blob kwenye hifadhi unayochagua, na `send_file()` hubeba rejea iliyosainiwa `{url, sha256, key, enc, …}` kwa mpokeaji ndani ya ujumbe uliosimbwa kutoka mwisho hadi mwisho. Usimbaji fiche huficha yaliyomo kwenye faili; haufichi metadata zote. Relay huona mpokeaji na metadata za bahasha; hifadhi huona ukubwa wa blob na metadata za ombi, na gateway iliyosanidiwa hurekodi pande zote na nyakati za kupakia/kuchukua. `files.open_file(blob, ref)` hukagua sha256 kutoka ujumbe uliosainiwa kisha kusimbua — baiti iliyobadilishwa au ufunguo usio sahihi husababisha kosa wazi, kamwe si data ovyo. **Ufikiaji wa hifadhi unahitaji miito maalumu:** usimbaji fiche na uchanganuzi havifanyi I/O ya mtandao; `files.resolve_download_target()` inaweza kufanya DNS, na `a4a.file_gateway` hutoa miito maalumu ya kupakia/kuchukua/hali kwa gateway inayosanidiwa na mwitaji. `Agent.send_file()` hutuma rejea kupitia relay; haipakii blob wala kuthibitisha baiti kwenye anwani yake. Kutuma bila `key` kunaruhusiwa (kiungo cha umma ni matumizi halali) lakini hutoa onyo: faili isiyosimbwa inasomeka kwa mtoa hifadhi na yeyote anayejua URL.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Lugha

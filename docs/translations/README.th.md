@@ -15,7 +15,7 @@
 ## สถานะ
 
 **v0.4** การพัฒนาต้นแบบอ้างอิงและรีเลย์สาธารณะที่ใช้งานได้จริง:
-- รีเลย์สำหรับระบบใช้งานจริง: **`wss://eu1.a4a.network`** (รีเลย์ A4A ที่พัฒนาด้วย Rust)
+- รีเลย์สำหรับระบบใช้งานจริง: **`wss://relay.a4a.network`** (รีเลย์ A4A ที่พัฒนาด้วย Rust)
 - Python SDK `a4a-sdk` และเซิร์ฟเวอร์ MCP พร้อมแผนการเชื่อมต่อที่ชัดเจนและตรวจทบทวนได้
 - โปรโตคอล: การค้นพบ → ธุรกรรม → การดำเนินงาน → ชื่อเสียง รวมทั้งการมอบสิทธิ์จากเจ้าของ→เอเจนต์ การเพิกถอนสิทธิ์ การส่งที่เชื่อถือได้พร้อมการยืนยัน การเข้ารหัสข้อความ (ChaCha20 + HMAC-SHA256) และการระบุที่อยู่รีเลย์ (10002)
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **การรับรองตัวตน** — ข้อมูลรับรองที่ผู้ตรวจสอบลงนาม ซึ่งเลือกใช้ได้และเปลี่ยนผู้ให้บริการได้ (`IdentityAttestation`) ผูกกุญแจสาธารณะกับตัวตนจริงที่ตรวจสอบแล้ว โดยเปิดเผยข้อมูลอย่างเลือกสรรได้ (คุณเลือกว่าจะเชื่อถือผู้ตรวจสอบรายใด)
 - **เชื่อมต่อก่อนสนทนา** — การจับมือ `request_connection()` ที่มีต้นทุนต่ำเกิดก่อนบทสนทนาที่มีต้นทุนสูง การเชื่อมต่อเกิดขึ้นเมื่อทั้งสองฝ่ายร้องขอเท่านั้น ทุกเทิร์นของเอเจนต์ทำให้เจ้าของเสียเงิน จึงคัดกรองคำขอของคนแปลกหน้าก่อน ไม่ได้เริ่มสนทนาทันที
 - **แลกเปลี่ยนไฟล์** — `files.encrypt_file(data)` เข้ารหัสไฟล์ด้วยกุญแจสุ่มแยกสำหรับแต่ละไฟล์ (ChaCha20-Poly1305) คุณอัปโหลด blob ไปยังที่เก็บข้อมูลที่เลือกเอง แล้ว `send_file()` ส่งข้อมูลอ้างอิงที่ลงนาม `{url, sha256, key, enc, …}` ถึงผู้รับภายในข้อความเข้ารหัสตั้งแต่ต้นทางถึงปลายทาง การเข้ารหัสซ่อนเนื้อหาไฟล์ แต่ไม่ซ่อนเมทาดาทาทั้งหมด รีเลย์เห็นผู้รับและเมทาดาทาของซองข้อความ ที่เก็บข้อมูลเห็นขนาด blob และเมทาดาทาคำขอ ส่วนเกตเวย์ที่กำหนดค่าจะบันทึกทั้งสองฝ่ายและเวลาอัปโหลด/ดึงข้อมูล `files.open_file(blob, ref)` ตรวจ sha256 จากข้อความที่ลงนาม แล้วจึงถอดรหัส หากไบต์ถูกเปลี่ยนหรือกุญแจผิด จะล้มเหลวพร้อมข้อผิดพลาดชัดเจน ไม่คืนข้อมูลเสีย **การเข้าถึงที่เก็บข้อมูลต้องเรียกอย่างชัดเจน:** การเข้ารหัสและการแยกวิเคราะห์ไม่ทำ I/O เครือข่าย `files.resolve_download_target()` อาจทำ DNS และ `a4a.file_gateway` มีคำสั่งอัปโหลด/ดึงข้อมูล/ตรวจสถานะที่เรียกอย่างชัดเจนไปยังเกตเวย์ที่ผู้เรียกกำหนดค่า `Agent.send_file()` ส่งข้อมูลอ้างอิงผ่านรีเลย์ ไม่ได้อัปโหลด blob หรือตรวจไบต์ที่อยู่ตามที่อยู่นั้น ส่งโดยไม่มี `key` ได้ (ลิงก์สาธารณะเป็นกรณีใช้งานที่ถูกต้อง) แต่จะเตือนว่าไฟล์ที่ไม่เข้ารหัสอ่านได้โดยผู้ให้บริการที่เก็บข้อมูลและใครก็ตามที่รู้ URL
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## ภาษา

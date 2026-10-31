@@ -15,7 +15,7 @@
 ## స్థితి
 
 **v0.4.** రిఫరెన్స్ ఇంప్లిమెంటేషన్ మరియు ప్రత్యక్ష పబ్లిక్ రిలే:
-- ప్రొడక్షన్ రిలే: **`wss://eu1.a4a.network`** (Rust లో నిర్మించిన A4A రిలే).
+- ప్రొడక్షన్ రిలే: **`wss://relay.a4a.network`** (Rust లో నిర్మించిన A4A రిలే).
 - Python SDK `a4a-sdk` మరియు స్పష్టమైన, సమీక్షించగల కనెక్షన్ ప్రణాళికతో MCP సర్వర్.
 - ప్రోటోకాల్: అన్వేషణ → ఒప్పందాలు → అమలు → ప్రతిష్ఠ; అదనంగా యజమాని→ఏజెంట్ అధికార బదలాయింపు, బదలాయింపు రద్దు, స్వీకరణ నిర్ధారణతో విశ్వసనీయ డెలివరీ, సందేశ గుప్తీకరణ (ChaCha20 + HMAC-SHA256), రిలే చిరునామా విధానం (10002).
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **గుర్తింపు ధృవపత్రాలు** — ఐచ్ఛికంగా జోడించగల, ధృవీకర్త సంతకం చేసిన ఆధారాలు (`IdentityAttestation`) పబ్లిక్ కీని ధృవీకరించిన వాస్తవ గుర్తింపుతో కడతాయి; ఎంపిక చేసిన సమాచార వెల్లడి ఉంటుంది (ఏ ధృవీకర్తలను నమ్మాలో మీరే ఎంచుకుంటారు).
 - **మాట్లాడే ముందు కనెక్ట్ అవ్వండి** — తక్కువ ఖర్చు `request_connection()` హ్యాండ్‌షేక్ ఖరీదైన సంభాషణకు ముందు జరుగుతుంది; రెండు పక్షాలూ కోరినప్పుడే కనెక్షన్ ఉంటుంది. ఏజెంట్ ప్రతి టర్న్ యజమానికి డబ్బు ఖర్చు చేస్తుంది; కాబట్టి అపరిచితులకు తొలి పరిశీలన ఉంటుంది, సంభాషణ కాదు.
 - **ఫైల్ మార్పిడి** — `files.encrypt_file(data)` ప్రతి ఫైల్‌కు యాదృచ్ఛిక కీతో ఫైల్‌ను గుప్తీకరిస్తుంది (ChaCha20-Poly1305); మీరు blob ను ఇష్టమైన స్టోరేజ్‌లో అప్‌లోడ్ చేస్తారు; `send_file()` సంతకం చేసిన రిఫరెన్స్ `{url, sha256, key, enc, …}` ను ఎండ్-టు-ఎండ్ గుప్తీకరించిన సందేశంలో గ్రహీతకు పంపుతుంది. గుప్తీకరణ ఫైల్ విషయాన్ని దాచుతుంది; మొత్తం మెటాడేటాను దాచదు. రిలే గ్రహీతను, ఎన్వలప్ మెటాడేటాను చూస్తుంది; స్టోరేజ్ blob పరిమాణం, అభ్యర్థన మెటాడేటాను చూస్తుంది; కాన్ఫిగర్ చేసిన గేట్‌వే రెండు పక్షాలు, అప్‌లోడ్/తీసుకురావడం సమయాలను నమోదు చేస్తుంది. `files.open_file(blob, ref)` సంతకం చేసిన సందేశంలోని sha256 తనిఖీ చేసి డీక్రిప్ట్ చేస్తుంది — మారిన బైట్ లేదా తప్పు కీ స్పష్టమైన వైఫల్యం ఇస్తుంది; ఎప్పుడూ అర్థంలేని డేటా ఇవ్వదు. **స్టోరేజ్ ప్రవేశం స్పష్టమైనది:** గుప్తీకరణ, పార్సింగ్ నెట్‌వర్క్ I/O చేయవు; `files.resolve_download_target()` DNS చేయవచ్చు; `a4a.file_gateway` కాల్ చేసే వ్యక్తి కాన్ఫిగర్ చేసిన గేట్‌వేకు స్పష్టమైన అప్‌లోడ్/తీసుకురావడం/స్థితి కాల్‌లను అందిస్తుంది. `Agent.send_file()` రిలే ద్వారా రిఫరెన్స్ పంపుతుంది; blob అప్‌లోడ్ చేయదు లేదా దాని చిరునామాలోని బైట్లను ధృవీకరించదు. `key` లేకుండా పంపవచ్చు (బహిరంగ లింక్ సరైన ఉపయోగమే), కానీ హెచ్చరిక వస్తుంది: గుప్తీకరించని ఫైల్‌ను స్టోరేజ్ ప్రదాత, URL తెలిసిన ఎవరైనా చదవగలరు.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## భాష

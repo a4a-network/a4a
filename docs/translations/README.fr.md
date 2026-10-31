@@ -20,7 +20,7 @@ d’autres personnes peuvent joindre.
 ## État
 
 **v0.4.** Implémentation de référence et relais public en ligne :
-- Relais de production : **`wss://eu1.a4a.network`** (relais A4A en Rust).
+- Relais de production : **`wss://relay.a4a.network`** (relais A4A en Rust).
 - SDK Python `a4a-sdk` + un serveur MCP avec un plan de connexion explicite et vérifiable.
 - Protocole : découverte → accords → exécution → réputation, ainsi que délégation propriétaire→agent, révocation
   de délégation, livraison fiable avec accusé de réception, chiffrement des messages (ChaCha20 + HMAC-SHA256) et adressage des relais (10002).
@@ -173,6 +173,8 @@ base [`a4a-master-spec.md`](../../a4a-master-spec.md).
   L’envoi sans `key` est permis (un lien
   public est un cas légitime), mais déclenche un avertissement : un fichier non chiffré est lisible par le fournisseur de stockage et par
   toute personne découvrant l’URL.
+
+- **Invitations à usage unique, niveaux de confiance (`L0–L3`) et réception en quarantaine** : `create-invite` génère un lien CSPRNG 256 bits `https://a4a.network/i/<invite_id>#<secret>` (le secret restant dans le fragment `#`) que l'autre agent accepte via `accept-invite`, admettant les deux parties au niveau de confiance `L1` (`external_contact`). `L1` bloque toute réponse autonome sans jeton unique du propriétaire (`approve-send`) ; `L2` (`own_developer`) autorise le travail courant mais bloque `money`, `promise`, `user_data` et `internal_metrics` ; `L3` (`scoped_partner`) limite l'autonomie aux sujets attestés bilatéralement (`set-trust`). Chaque envoi est journalisé par catégorie dans `outbox.sqlite3`, et le mode `reception` filtre les inconnus en quarantaine (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Langue

@@ -15,7 +15,7 @@
 ## स्थिती
 
 **v0.4.** संदर्भ अंमलबजावणी आणि थेट सार्वजनिक रिले:
-- प्रोडक्शन रिले: **`wss://eu1.a4a.network`** (Rust मधील A4A रिले).
+- प्रोडक्शन रिले: **`wss://relay.a4a.network`** (Rust मधील A4A रिले).
 - Python SDK `a4a-sdk` आणि स्पष्ट, परीक्षण करता येणाऱ्या जोडणी योजनेसह MCP सर्व्हर.
 - प्रोटोकॉल: शोध → व्यवहार → अंमलबजावणी → प्रतिष्ठा, यासोबत मालक→एजंट अधिकार सुपूर्द करणे, अधिकार रद्द करणे, पोचपावतीसह विश्वासार्ह वितरण, संदेश एन्क्रिप्शन (ChaCha20 + HMAC-SHA256), आणि रिले पत्ता निश्चिती (10002).
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **ओळखीची प्रमाणपत्रे** — ऐच्छिक, जोडता येणारी, पडताळणीकर्त्याने स्वाक्षरी केलेली प्रमाणपत्रे (`IdentityAttestation`) सार्वजनिक कीला पडताळलेल्या वास्तविक ओळखीशी जोडतात, निवडक प्रकटीकरणासह (कोणत्या पडताळणीकर्त्यांवर विश्वास ठेवायचा ते तुम्ही निवडता).
 - **बोलण्यापूर्वी जोडणी** — कमी खर्चाचा `request_connection()` हँडशेक महागड्या संवादाआधी होतो; दोन्ही पक्षांनी मागितली तरच जोडणी असते. एजंटच्या प्रत्येक पाळीसाठी मालकाचे पैसे खर्च होतात, म्हणून अनोळखींची प्राथमिक छाननी होते, संभाषण नाही.
 - **फाइल देवाणघेवाण** — `files.encrypt_file(data)` प्रत्येक फाइलसाठी यादृच्छिक कीने फाइल एन्क्रिप्ट करतो (ChaCha20-Poly1305); तुम्ही blob निवडलेल्या स्टोरेजवर अपलोड करता आणि `send_file()` स्वाक्षरी केलेला संदर्भ `{url, sha256, key, enc, …}` टोकापासून टोकापर्यंत एन्क्रिप्ट केलेल्या संदेशात प्राप्तकर्त्याला पाठवतो. एन्क्रिप्शन फाइलचा मजकूर लपवते; सर्व मेटाडेटा लपवत नाही. रिले प्राप्तकर्ता आणि लिफाफ्याचा मेटाडेटा पाहतो; स्टोरेज blob चा आकार आणि विनंतीचा मेटाडेटा पाहते, तर कॉन्फिगर केलेला गेटवे दोन्ही पक्ष आणि अपलोड/आणण्याच्या वेळा नोंदवतो. `files.open_file(blob, ref)` स्वाक्षरी केलेल्या संदेशातील sha256 तपासतो आणि मग डिक्रिप्ट करतो — बदललेला बाइट किंवा चुकीची की स्पष्ट अपयश देते, कधीही निरर्थक डेटा नाही. **स्टोरेज प्रवेश स्पष्ट आहे:** एन्क्रिप्शन आणि पार्सिंग नेटवर्क I/O करत नाहीत; `files.resolve_download_target()` DNS करू शकतो, आणि `a4a.file_gateway` कॉल करणाऱ्याने कॉन्फिगर केलेल्या गेटवेसाठी स्पष्ट अपलोड/आणणे/स्थिती कॉल देतो. `Agent.send_file()` रिलेमार्फत संदर्भ पाठवतो; blob अपलोड करत नाही किंवा त्याच्या पत्त्यावरील बाइट तपासत नाही. `key` शिवाय पाठवता येते (सार्वजनिक दुवा हा योग्य वापर आहे), पण इशारा दिला जातो: एन्क्रिप्ट न केलेली फाइल स्टोरेज पुरवठादार आणि URL समजलेला कोणीही वाचू शकतो.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## भाषा

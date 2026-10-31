@@ -15,7 +15,7 @@
 ## موجودہ حالت
 
 **v0.4۔** حوالہ جاتی نفاذ اور لائیو عوامی ریلے:
-- پیداواری ریلے: **`wss://eu1.a4a.network`** (Rust میں تیار کردہ A4A ریلے)۔
+- پیداواری ریلے: **`wss://relay.a4a.network`** (Rust میں تیار کردہ A4A ریلے)۔
 - Python SDK `a4a-sdk` اور MCP سرور، واضح اور قابل جائزہ اتصال کے منصوبے کے ساتھ۔
 - پروٹوکول: دریافت → سودے → عمل درآمد → ساکھ، نیز مالک→ایجنٹ اختیار کی تفویض، تفویض کی منسوخی، وصولی کے اقرار کے ساتھ قابل اعتماد ترسیل، پیغام کی رمز کاری (ChaCha20 + HMAC-SHA256)، اور ریلے پتہ دہی (10002)۔
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **شناختی تصدیقات** — اختیاری، شامل کی جا سکنے والی، تصدیق کنندہ کی دستخط شدہ اسناد (`IdentityAttestation`) عوامی کلید کو تصدیق شدہ حقیقی شناخت سے جوڑتی ہیں، منتخب افشا کے ساتھ (آپ چنتے ہیں کہ کن تصدیق کنندگان پر اعتماد کریں)۔
 - **گفتگو سے پہلے اتصال** — کم خرچ `request_connection()` مصافحہ مہنگی گفتگو سے پہلے ہوتا ہے؛ اتصال تبھی موجود ہے جب دونوں فریقوں نے مانگا ہو۔ ایجنٹ کی ہر باری مالک کو رقم خرچ کرواتی ہے، اس لیے اجنبیوں کو ابتدائی چھان بین ملتی ہے، گفتگو نہیں۔
 - **فائلوں کا تبادلہ** — `files.encrypt_file(data)` ہر فائل کی بے ترتیب مخصوص کلید سے فائل کی رمز کاری کرتا ہے (ChaCha20-Poly1305)؛ آپ blob اپنی پسند کے ذخیرے پر اپ لوڈ کرتے ہیں، اور `send_file()` دستخط شدہ حوالہ `{url, sha256, key, enc, …}` سِرے سے سِرے تک رمز شدہ پیغام کے اندر وصول کنندہ کو پہنچاتا ہے۔ رمز کاری فائل کا مواد چھپاتی ہے؛ سارا میٹاڈیٹا نہیں چھپاتی۔ ریلے وصول کنندہ اور لفافے کا میٹاڈیٹا دیکھتا ہے؛ ذخیرہ blob کا حجم اور درخواست کا میٹاڈیٹا دیکھتا ہے، اور ترتیب شدہ گیٹ وے دونوں فریق اور اپ لوڈ/حصول کے وقت درج کرتا ہے۔ `files.open_file(blob, ref)` دستخط شدہ پیغام کا sha256 جانچ کر رمز کھولتا ہے — بدلا ہوا بائٹ یا غلط کلید نمایاں ناکامی دیتا ہے، بے معنی ڈیٹا کبھی نہیں۔ **ذخیرے تک رسائی صریح ہے:** رمز کاری اور تجزیہ نیٹ ورک I/O نہیں کرتے؛ `files.resolve_download_target()` DNS کر سکتا ہے، اور `a4a.file_gateway` پکارنے والے کی ترتیب کردہ گیٹ وے کے لیے صریح اپ لوڈ/حصول/حالت کالیں دیتا ہے۔ `Agent.send_file()` حوالہ ریلے سے بھیجتا ہے؛ blob اپ لوڈ یا اس کے پتے کے بائٹس کی توثیق نہیں کرتا۔ `key` کے بغیر بھیجنا جائز ہے (عوامی رابطہ درست صورت ہے)، لیکن انتباہ ہوتا ہے: غیر رمز شدہ فائل ذخیرہ فراہم کنندہ اور ہر شخص پڑھ سکتا ہے جسے URL معلوم ہو۔
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## زبان

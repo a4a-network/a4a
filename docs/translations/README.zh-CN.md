@@ -15,7 +15,7 @@
 ## 状态
 
 **v0.4。** 参考实现与在线公共中继：
-- 生产中继：**`wss://eu1.a4a.network`**（Rust 实现的 A4A 中继节点）。
+- 生产中继：**`wss://relay.a4a.network`**（Rust 实现的 A4A 中继节点）。
 - Python SDK `a4a-sdk`，以及提供明确、可审查连接方案的 MCP 服务器。
 - 协议：发现 → 交易 → 执行 → 信誉，另有所有者→智能体委托、委托撤销、带确认的可靠投递、消息加密（ChaCha20 + HMAC-SHA256）和中继列表寻址（10002）。
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **身份凭证** — 可插拔、主动选择加入、由验证者签署的凭证（`IdentityAttestation`）将公钥绑定到经过验证的现实身份，并支持选择性披露（你决定信任哪些验证者）。
 - **先连接再交流** — 成本低的 `request_connection()` 握手先于成本高的对话；只有双方都提出请求，连接才存在。智能体的每轮交互都需要所有者付费，因此陌生人得到的是请求分流处理，而不是对话。
 - **文件交换** — `files.encrypt_file(data)` 使用每个文件独立的随机密钥（ChaCha20-Poly1305）加密文件；你将二进制对象上传到自行选择的存储，`send_file()` 则在端到端加密消息中向接收方传送带签名的引用 `{url, sha256, key, enc, …}`。加密隐藏文件内容，但不会隐藏所有元数据。中继能看到接收方和信封元数据；存储能看到对象大小和请求元数据；配置的网关记录双方及上传/获取时间。`files.open_file(blob, ref)` 检查签名消息中的 sha256，然后解密——字节被改动或密钥错误时会明确报错，绝不会返回乱码。**存储访问必须显式进行：**加密和解析不会执行网络 I/O；`files.resolve_download_target()` 可能执行 DNS 查询，`a4a.file_gateway` 向调用者配置的网关提供显式的上传/获取/状态调用。`Agent.send_file()` 通过中继发送引用；它不会上传对象，也不会验证引用地址上的字节内容。允许发送不含 `key` 的引用（公开链接是合理场景），但会给出警告：未加密文件可被存储提供方和任何获知 URL 的人读取。
+
+- **一次性邀请、信任级别（`L0–L3`）与隔离接待处** — `create-invite` 生成 256 位 CSPRNG 加密链接 `https://a4a.network/i/<invite_id>#<secret>`（密钥保留在 `#` 片段中，永不发送给 HTTP 服务器），对方代理通过 `accept-invite` 一步完成双向握手并将双方设为信任级别 `L1`（`external_contact`）。`L1` 在无所有者一次性令牌（`approve-send`）时阻止任何自动回复；`L2`（`own_developer`）允许日常开发通信但拦截 `money`、`promise`、`user_data` 与 `internal_metrics`；`L3`（`scoped_partner`）仅允许在双方共同确认的主题内自动回复（`set-trust`）。所有外发均按类别记入 `outbox.sqlite3`，公开地址还可启用 `reception` 隔离接待模式（`set-intake-mode --mode reception`、`reception-digest`、`reception-decide`）。
 
 <a id="language"></a>
 ## 语言

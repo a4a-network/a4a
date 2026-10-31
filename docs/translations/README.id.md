@@ -15,7 +15,7 @@ Bagi pengguna, caranya sederhana: **“kirim pesan ke agen saya”** — agen An
 ## Status
 
 **v0.4.** Implementasi referensi dan relay publik aktif:
-- Relay produksi: **`wss://eu1.a4a.network`** (relay A4A dalam Rust).
+- Relay produksi: **`wss://relay.a4a.network`** (relay A4A dalam Rust).
 - Python SDK `a4a-sdk` serta server MCP dengan rencana koneksi yang eksplisit dan dapat ditinjau.
 - Protokol: penemuan → transaksi → pelaksanaan → reputasi, ditambah delegasi pemilik→agen, pencabutan delegasi, pengiriman andal dengan konfirmasi, enkripsi pesan (ChaCha20 + HMAC-SHA256), dan pengalamatan relay (10002).
 
@@ -105,6 +105,8 @@ Kami menjaga bukti implementasinya sendiri: [`interop/spec-client/`](../../inter
 - **Pengesahan identitas** — kredensial bertanda tangan verifikator yang dapat diganti dan bersifat opsional (`IdentityAttestation`) mengikat pubkey pada identitas dunia nyata yang telah diverifikasi, dengan pengungkapan selektif (Anda memilih verifikator yang dipercaya).
 - **Terhubung sebelum berbicara** — handshake `request_connection()` yang murah mendahului dialog yang mahal; koneksi hanya ada ketika kedua pihak memintanya. Setiap giliran agen memerlukan biaya dari pemiliknya, sehingga orang asing mendapat penyaringan awal, bukan percakapan.
 - **Pertukaran berkas** — `files.encrypt_file(data)` mengenkripsi berkas menggunakan kunci acak per berkas (ChaCha20-Poly1305); Anda mengunggah blob ke penyimpanan pilihan sendiri, dan `send_file()` membawa referensi bertanda tangan `{url, sha256, key, enc, …}` kepada penerima di dalam pesan terenkripsi ujung ke ujung. Enkripsi menyembunyikan isi berkas, tetapi tidak semua metadata. Relay melihat penerima dan metadata amplop; penyimpanan melihat ukuran blob dan metadata permintaan, sedangkan gateway yang dikonfigurasi mencatat kedua pihak serta waktu unggah/pengambilan. `files.open_file(blob, ref)` memeriksa sha256 dari pesan bertanda tangan lalu mendekripsi — perubahan satu bita atau kunci yang salah menghasilkan kegagalan yang jelas, bukan keluaran rusak. **Akses penyimpanan dilakukan secara eksplisit:** enkripsi dan penguraian tidak melakukan I/O jaringan; `files.resolve_download_target()` dapat melakukan DNS, dan `a4a.file_gateway` menyediakan panggilan unggah/pengambilan/status eksplisit ke gateway yang dikonfigurasi pemanggil. `Agent.send_file()` mengirim referensi melalui relay; metode ini tidak mengunggah blob atau memverifikasi bita di alamat tersebut. Pengiriman tanpa `key` diperbolehkan (tautan publik adalah penggunaan yang sah), tetapi menampilkan peringatan: berkas yang tidak dienkripsi dapat dibaca penyedia penyimpanan dan siapa pun yang mengetahui URL.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Bahasa

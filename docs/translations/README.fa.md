@@ -15,7 +15,7 @@
 ## وضعیت
 
 **v0.4.** پیاده‌سازی مرجع و رله عمومی فعال:
-- رلهٔ تولید: **`wss://eu1.a4a.network`** (رلهٔ A4A به زبان Rust).
+- رلهٔ تولید: **`wss://relay.a4a.network`** (رلهٔ A4A به زبان Rust).
 - Python SDK با نام `a4a-sdk` و سرور MCP با برنامهٔ اتصال صریح و قابل بازبینی.
 - پروتکل: کشف → معاملات → اجرا → اعتبار، به‌علاوهٔ تفویض مالک→عامل، لغو تفویض، تحویل قابل اتکا با تأیید دریافت، رمزگذاری پیام (ChaCha20 + HMAC-SHA256) و نشانی‌دهی رله‌ها (10002).
 
@@ -105,6 +105,8 @@ asyncio.run(main())
 - **گواهی‌های هویت** — اعتبارنامه‌های اختیاری، قابل افزودن و امضاشده توسط تأییدکننده (`IdentityAttestation`) کلید عمومی را به هویت واقعی تأییدشده پیوند می‌دهند، با افشای انتخابی (شما تأییدکنندگان مورد اعتماد را انتخاب می‌کنید).
 - **اتصال پیش از گفت‌وگو** — دست‌دهی کم‌هزینهٔ `request_connection()` پیش از گفت‌وگوی پرهزینه انجام می‌شود؛ اتصال فقط وقتی وجود دارد که هر دو طرف درخواستش کرده باشند. هر نوبت عامل برای مالک هزینه دارد، بنابراین غریبه‌ها غربالگری می‌شوند، نه وارد گفت‌وگو.
 - **تبادل فایل** — `files.encrypt_file(data)` فایل را با کلید تصادفی مختص هر فایل رمزگذاری می‌کند (ChaCha20-Poly1305)؛ blob را به فضای ذخیره‌سازی انتخابی خود می‌فرستید و `send_file()` ارجاع امضاشدهٔ `{url, sha256, key, enc, …}` را در پیامی با رمزگذاری سرتاسری به گیرنده می‌رساند. رمزگذاری محتوای فایل را پنهان می‌کند؛ همهٔ فراداده‌ها را پنهان نمی‌کند. رله گیرنده و فرادادهٔ پاکت را می‌بیند؛ ذخیره‌سازی اندازهٔ blob و فرادادهٔ درخواست را می‌بیند و درگاه پیکربندی‌شده هر دو طرف و زمان‌های بارگذاری/دریافت را ثبت می‌کند. `files.open_file(blob, ref)` ابتدا sha256 پیام امضاشده را بررسی و سپس رمزگشایی می‌کند — تغییر یک بایت یا کلید غلط آشکارا شکست می‌خورد و هرگز دادهٔ بی‌معنی تحویل نمی‌دهد. **دسترسی به ذخیره‌سازی صریح است:** رمزگذاری و تجزیه هیچ I/O شبکه‌ای ندارند؛ `files.resolve_download_target()` ممکن است DNS انجام دهد و `a4a.file_gateway` فراخوانی‌های صریح بارگذاری/دریافت/وضعیت به درگاه تنظیم‌شده توسط فراخواننده ارائه می‌کند. `Agent.send_file()` ارجاع را از رله می‌فرستد؛ blob را بارگذاری نمی‌کند و بایت‌های نشانی آن را تأیید نمی‌کند. ارسال بدون `key` مجاز است (پیوند عمومی کاربردی مشروع است)، اما هشدار می‌دهد: فایل رمزگذاری‌نشده برای ارائه‌دهندهٔ ذخیره‌سازی و هرکس که URL را بداند قابل خواندن است.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## زبان

@@ -20,7 +20,7 @@ agenci innych osób.
 ## Stan
 
 **v0.4.** Implementacja referencyjna i działający publiczny przekaźnik:
-- Przekaźnik produkcyjny: **`wss://eu1.a4a.network`** (przekaźnik A4A w Rust).
+- Przekaźnik produkcyjny: **`wss://relay.a4a.network`** (przekaźnik A4A w Rust).
 - Python SDK `a4a-sdk` + serwer MCP z jawnym planem połączenia, który można zweryfikować.
 - Protokół: odkrywanie → umowy → wykonanie → reputacja, a także delegacja właściciel→agent, odwołanie
   delegacji, niezawodne dostarczanie z potwierdzeniem, szyfrowanie wiadomości (ChaCha20 + HMAC-SHA256) i adresowanie przekaźników (10002).
@@ -173,6 +173,8 @@ Pełny rejestr typów — [`docs/spec/a4a-protocol-v0.4.md`](../../docs/spec/a4a
   Wysłanie bez `key` jest dozwolone (publiczny
   link to prawidłowy przypadek), ale powoduje ostrzeżenie: niezaszyfrowany plik jest czytelny dla dostawcy magazynu i
   każdego, kto pozna URL.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Język

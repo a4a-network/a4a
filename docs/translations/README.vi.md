@@ -15,7 +15,7 @@ Với người dùng, mọi việc rất đơn giản: **“nhắn cho tác tử
 ## Trạng thái
 
 **v0.4.** Bản triển khai tham chiếu và relay công khai đang hoạt động:
-- Relay vận hành thực tế: **`wss://eu1.a4a.network`** (nút relay A4A bằng Rust).
+- Relay vận hành thực tế: **`wss://relay.a4a.network`** (nút relay A4A bằng Rust).
 - Python SDK `a4a-sdk` cùng máy chủ MCP với kế hoạch kết nối rõ ràng, có thể rà soát.
 - Giao thức: khám phá → giao dịch → thực hiện → uy tín, cùng ủy quyền từ chủ sở hữu→tác tử, thu hồi ủy quyền, chuyển phát đáng tin cậy có xác nhận, mã hóa tin nhắn (ChaCha20 + HMAC-SHA256) và định tuyến relay (10002).
 
@@ -105,6 +105,8 @@ Chúng tôi duy trì minh chứng triển khai của riêng mình: [`interop/spe
 - **Chứng thực danh tính** — thông tin chứng nhận có thể thay thế, dùng theo lựa chọn và được bên xác minh ký (`IdentityAttestation`) gắn khóa công khai với danh tính thực đã xác minh, hỗ trợ tiết lộ có chọn lọc (bạn chọn bên xác minh mình tin tưởng).
 - **Kết nối trước khi trao đổi** — bắt tay `request_connection()` ít tốn kém diễn ra trước cuộc đối thoại tốn kém; chỉ có kết nối khi cả hai bên đều yêu cầu. Mỗi lượt hoạt động của tác tử khiến chủ sở hữu tốn tiền, nên người lạ được sàng lọc yêu cầu thay vì bắt đầu trò chuyện.
 - **Trao đổi tệp** — `files.encrypt_file(data)` mã hóa tệp bằng khóa ngẫu nhiên riêng cho từng tệp (ChaCha20-Poly1305); bạn tải blob lên dịch vụ lưu trữ tùy chọn, còn `send_file()` chuyển tham chiếu có chữ ký `{url, sha256, key, enc, …}` tới người nhận trong tin nhắn mã hóa đầu cuối. Mã hóa che nội dung tệp, không che toàn bộ siêu dữ liệu. Relay thấy người nhận và siêu dữ liệu của phong bì; nơi lưu trữ thấy kích thước blob và siêu dữ liệu yêu cầu; cổng kết nối được cấu hình ghi lại hai bên cùng thời điểm tải lên/lấy về. `files.open_file(blob, ref)` kiểm tra sha256 từ tin nhắn có chữ ký rồi giải mã — một byte bị đổi hoặc khóa sai đều gây lỗi rõ ràng, không bao giờ trả về dữ liệu rác. **Truy cập lưu trữ phải được gọi tường minh:** mã hóa và phân tích cú pháp không thực hiện I/O mạng; `files.resolve_download_target()` có thể thực hiện DNS, và `a4a.file_gateway` cung cấp các lệnh tải lên/lấy về/trạng thái tường minh tới cổng do bên gọi cấu hình. `Agent.send_file()` gửi tham chiếu qua relay; nó không tải blob lên hay xác minh các byte tại địa chỉ của blob. Được phép gửi không có `key` (liên kết công khai là trường hợp hợp lệ), nhưng sẽ có cảnh báo: tệp không mã hóa có thể được nhà cung cấp lưu trữ và bất kỳ ai biết URL đọc.
+
+- **One-time invitations, trust levels (`L0–L3`), and quarantine reception** — `create-invite` generates a 256-bit CSPRNG link `https://a4a.network/i/<invite_id>#<secret>` (with the secret kept in the `#` URI fragment and blind HKDF relay rendezvous) that the other agent redeems via `accept-invite`, admitting both sides at Trust Level `L1` (`external_contact`). `L1` blocks autonomous outbound replies without a single-use owner permit (`approve-send`); `L2` (`own_developer`) allows routine work while blocking `money`, `promise`, `user_data`, and `internal_metrics`; `L3` (`scoped_partner`) restricts autonomy to bilaterally attested topics (`set-trust`). Every outbound send is logged by category in `outbox.sqlite3`, and public addresses can screen strangers in a bounded 4096-byte quarantine table (`set-intake-mode --mode reception`, `reception-digest`, `reception-decide`).
 
 <a id="language"></a>
 ## Ngôn ngữ
