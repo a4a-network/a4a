@@ -352,3 +352,40 @@ async def test_reception_mode_quarantine_digest_and_decisions(tmp_path, monkeypa
         assert claimed["message"]["from_pubkey"] == stranger1.pubkey
         assert claimed["message"]["trust_level"] == 1
         assert claimed["message"]["origin_label"] == "external_contact"
+        assert "owner_onboarding_prompt" in claimed["message"]
+
+
+def test_official_relay_pool_interoperability_and_contact_labels(tmp_path, monkeypatch):
+    home = tmp_path / "official_relay_agent"
+    _switch_home(monkeypatch, home)
+    identity.load_or_create_identity()
+
+    # Configure policy on wss://eu1.a4a.network, then run runtime with wss://ru1.a4a.network
+    monkeypatch.setenv("A4A_RELAY", "wss://eu1.a4a.network")
+    inbox_runtime.configure("session-ru", [], start_after=0)
+    monkeypatch.setenv("A4A_RELAY", "wss://ru1.a4a.network")
+
+    # Official regional relay switch (eu1 <-> ru1) must NOT fail active_policy()
+    pol = inbox_runtime.active_policy()
+    assert pol.relay == "wss://eu1.a4a.network"
+
+    # Switching to an unrelated non-A4A relay still fails closed
+    monkeypatch.setenv("A4A_RELAY", "wss://untrusted.example.org")
+    with pytest.raises(InboxError, match="Relay address differs"):
+        inbox_runtime.active_policy()
+
+    # Restore ru1 and test contact labeling + L1 -> L2 promotion preserving label
+    monkeypatch.setenv("A4A_RELAY", "wss://ru1.a4a.network")
+    peer_key = Keys().pubkey_hex
+    pol = inbox_runtime.set_peer_trust(peer_key, level=1, label="Ilya Kuzmin (Targetologist)")
+    info = pol.peer_policy(peer_key)
+    assert info["level"] == 1
+    assert info["origin"] == "external_contact"
+    assert info["label"] == "Ilya Kuzmin (Targetologist)"
+
+    # Updating label or trust level preserves existing fields
+    pol2 = inbox_runtime.set_peer_trust(peer_key, level=2)
+    info2 = pol2.peer_policy(peer_key)
+    assert info2["level"] == 2
+    assert info2["label"] == "Ilya Kuzmin (Targetologist)"
+

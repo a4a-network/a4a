@@ -92,26 +92,33 @@ class InboxPolicy:
     blocked_senders: frozenset[str] = frozenset()
     # Local registry of one-time expiring invitations created by this mailbox.
     invitations: dict = None  # type: ignore[assignment]
+    # Optional human-readable contact notes/labels keyed by canonical pubkey.
+    peer_notes: dict = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.peer_trust is None:
             object.__setattr__(self, "peer_trust", {})
         if self.invitations is None:
             object.__setattr__(self, "invitations", {})
+        if self.peer_notes is None:
+            object.__setattr__(self, "peer_notes", {})
 
     def peer_policy(self, pubkey: str, *, is_owner_agent: bool = False) -> dict:
-        """Return effective trust level (1..3), origin label, and scope for `pubkey`."""
+        """Return effective trust level (1..3), origin label, label, and scope for `pubkey`."""
         entry = (self.peer_trust or {}).get(pubkey)
+        note_label = str((self.peer_notes or {}).get(pubkey, "")).strip()
         if entry is not None:
             level = int(entry["level"])
             origin = str(entry["origin"])
             topics = list(entry.get("topics", ()))
             remote_attested = bool(entry.get("remote_trust_attested", False))
+            label = str(entry.get("label", "")).strip() or note_label
         elif is_owner_agent or pubkey in self.allowed_owners:
             level = 2
             origin = "owner_agent"
             topics = []
             remote_attested = False
+            label = note_label
         else:
             # Legacy allowed_peers without an explicit peer_trust entry default to L2
             # routine autonomy with external_contact origin label so existing internal
@@ -120,8 +127,9 @@ class InboxPolicy:
             origin = "external_contact"
             topics = []
             remote_attested = False
+            label = note_label
         l3_ready = (level == 3 and remote_attested and len(topics) > 0)
-        return {
+        out = {
             "level": level,
             "origin": origin,
             "topics": topics,
@@ -130,9 +138,31 @@ class InboxPolicy:
             "requires_owner_approval_for_all_replies": (level == 1 or (level == 3 and not l3_ready)),
             "always_requires_owner_approval_categories": sorted(RESTRICTED_OUTBOUND_CATEGORIES),
         }
+        if label:
+            out["label"] = label
+        return out
 
 
 VALID_INTAKE_MODES = ("closed", "reception", "public_service")
+
+_OFFICIAL_A4A_RELAYS = frozenset({
+    "wss://relay.a4a.network",
+    "wss://eu1.a4a.network",
+    "wss://eu2.a4a.network",
+    "wss://us1.a4a.network",
+    "wss://us2.a4a.network",
+    "wss://sg1.a4a.network",
+    "wss://kz1.a4a.network",
+    "wss://ru1.a4a.network",
+    "wss://ru2.a4a.network",
+})
+
+_CORE_PUBLIC_RELAYS = (
+    "wss://eu1.a4a.network",
+    "wss://ru1.a4a.network",
+    "wss://us1.a4a.network",
+    "wss://sg1.a4a.network",
+)
 
 _OPTIONAL_POLICY_FIELDS = {
     "ack_on_receipt",
@@ -142,7 +172,24 @@ _OPTIONAL_POLICY_FIELDS = {
     "intake_mode",
     "blocked_senders",
     "invitations",
+    "peer_notes",
 }
+
+
+def _validate_peer_notes(raw_notes) -> dict[str, str]:
+    if raw_notes is None:
+        return {}
+    if not isinstance(raw_notes, dict) or len(raw_notes) > 200:
+        raise InboxError("peer_notes must be a bounded JSON object")
+    validated: dict[str, str] = {}
+    for pubkey, note in raw_notes.items():
+        if not isinstance(pubkey, str) or not is_canonical_pubkey(pubkey):
+            raise InboxError("peer_notes keys must be canonical 64-hex public keys")
+        if not isinstance(note, str) or len(note) > 240:
+            raise InboxError("peer_notes values must be strings up to 240 characters")
+        if note.strip():
+            validated[pubkey] = note.strip()
+    return validated
 
 
 def _validate_peer_trust(raw_peer_trust) -> dict[str, dict]:
@@ -156,7 +203,7 @@ def _validate_peer_trust(raw_peer_trust) -> dict[str, dict]:
             raise InboxError("peer_trust keys must be canonical 64-hex public keys")
         if not isinstance(spec, dict):
             raise InboxError("peer_trust entry must be a JSON object")
-        allowed_keys = {"level", "origin", "topics", "remote_trust_attested"}
+        allowed_keys = {"level", "origin", "topics", "remote_trust_attested", "label"}
         if not set(spec) <= allowed_keys or "level" not in spec:
             raise InboxError("peer_trust entry contains invalid or missing fields")
         level = spec["level"]
@@ -172,12 +219,18 @@ def _validate_peer_trust(raw_peer_trust) -> dict[str, dict]:
         remote_attested = spec.get("remote_trust_attested", False)
         if type(remote_attested) is not bool:
             raise InboxError("peer_trust remote_trust_attested must be a JSON boolean")
-        validated[pubkey] = {
+        label = spec.get("label", "")
+        if not isinstance(label, str) or len(label) > 160:
+            raise InboxError("peer_trust label must be a string up to 160 characters")
+        entry_dict = {
             "level": level,
             "origin": origin,
             "topics": [t.strip() for t in topics],
             "remote_trust_attested": remote_attested,
         }
+        if label.strip():
+            entry_dict["label"] = label.strip()
+        validated[pubkey] = entry_dict
     return validated
 
 
@@ -294,6 +347,7 @@ def _validate(data):
     peer_trust = _validate_peer_trust(data.get("peer_trust"))
     permits = _validate_send_permits(data.get("owner_send_permits"))
     invitations = _validate_invitations(data.get("invitations"))
+    peer_notes = _validate_peer_notes(data.get("peer_notes"))
     if type(data["enabled"]) is not bool:
         raise InboxError("enabled must be a JSON boolean")
     for key, low, high in (("start_after", 0, 2**63 - 1), ("notify_interval", 10, 3600), ("notify_per_hour", 1, 60)):
@@ -308,7 +362,8 @@ def _validate(data):
                           "intake_mode": intake_mode,
                           "peer_trust": peer_trust,
                           "owner_send_permits": permits,
-                          "invitations": invitations})
+                          "invitations": invitations,
+                          "peer_notes": peer_notes})
 
 
 def load_policy():
@@ -364,7 +419,8 @@ def _write_policy_data(data: dict, *, replace: bool) -> InboxPolicy:
 
 
 def _policy_to_json_data(policy: InboxPolicy, *, peer_trust=None, owner_send_permits=None,
-                         intake_mode=None, blocked_senders=None, invitations=None) -> dict:
+                         intake_mode=None, blocked_senders=None, invitations=None,
+                         peer_notes=None) -> dict:
     data = asdict(policy)
     data["allowed_peers"] = list(policy.allowed_peers)
     data["allowed_owners"] = list(policy.allowed_owners)
@@ -373,6 +429,7 @@ def _policy_to_json_data(policy: InboxPolicy, *, peer_trust=None, owner_send_per
     effective_mode = policy.intake_mode if intake_mode is None else intake_mode
     effective_blocked = policy.blocked_senders if blocked_senders is None else blocked_senders
     effective_invitations = policy.invitations if invitations is None else invitations
+    effective_notes = policy.peer_notes if peer_notes is None else peer_notes
     if effective_trust:
         data["peer_trust"] = dict(effective_trust)
     else:
@@ -393,13 +450,17 @@ def _policy_to_json_data(policy: InboxPolicy, *, peer_trust=None, owner_send_per
         data["invitations"] = dict(effective_invitations)
     else:
         data.pop("invitations", None)
+    if effective_notes:
+        data["peer_notes"] = dict(effective_notes)
+    else:
+        data.pop("peer_notes", None)
     return data
 
 
 def configure(consumer, allowed_peers, *, start_after=None, replace=False,
               ack_on_receipt=False, allowed_owners=(), peer_trust=None,
               owner_send_permits=None, intake_mode=None, blocked_senders=None,
-              invitations=None):
+              invitations=None, peer_notes=None):
     """Explicit local owner CLI action. Never an MCP tool and never issues a mandate."""
     if not identity.IDENTITY_FILE.is_file():
         raise InboxError("create and verify the intended identity before configuring inbox")
@@ -420,10 +481,13 @@ def configure(consumer, allowed_peers, *, start_after=None, replace=False,
         blocked_senders = set(existing.blocked_senders) - set(allowed_peers)
     if invitations is None and existing is not None and existing.invitations:
         invitations = dict(existing.invitations)
+    if peer_notes is None and existing is not None and existing.peer_notes:
+        peer_notes = {k: v for k, v in existing.peer_notes.items() if k in allowed_peers}
     normalized_trust = None
     if peer_trust:
         normalized_trust = {Keys.normalize_pubkey(k): v for k, v in dict(peer_trust).items()}
     norm_blocked = frozenset(Keys.normalize_pubkey(p) for p in (blocked_senders or ()))
+    norm_notes = {Keys.normalize_pubkey(k): str(v).strip() for k, v in dict(peer_notes or {}).items() if str(v).strip()}
     keys = _existing_keys()
     from .server import _relay_url
     draft = InboxPolicy(
@@ -436,6 +500,7 @@ def configure(consumer, allowed_peers, *, start_after=None, replace=False,
         intake_mode=intake_mode or "closed",
         blocked_senders=norm_blocked,
         invitations=dict(invitations or {}),
+        peer_notes=norm_notes,
     )
     data = _policy_to_json_data(
         draft,
@@ -444,38 +509,65 @@ def configure(consumer, allowed_peers, *, start_after=None, replace=False,
         intake_mode=draft.intake_mode,
         blocked_senders=norm_blocked,
         invitations=draft.invitations,
+        peer_notes=norm_notes,
     )
     data["allowed_peers"] = list(allowed_peers)
     data["allowed_owners"] = list(allowed_owners)
     return _write_policy_data(data, replace=replace)
 
 
-def set_peer_trust(pubkey: str, *, level: int, origin: str | None = None,
-                   topics=(), remote_trust_attested: bool = False) -> InboxPolicy:
-    """Owner CLI action: set or update trust level (L1..L3), origin, and L3 topics for a peer."""
+def set_peer_trust(pubkey: str, *, level: int | None = None, origin: str | None = None,
+                   topics=(), remote_trust_attested: bool | None = None,
+                   label: str | None = None) -> InboxPolicy:
+    """Owner CLI action: set or update trust level (L1..L3), origin, label, and L3 topics for a peer."""
     from a4a.keys import Keys
     norm = Keys.normalize_pubkey(pubkey)
     policy = active_policy()
+    prev = dict((policy.peer_trust or {}).get(norm) or {})
+    if level is None:
+        level = int(prev.get("level", 1))
     if level not in VALID_TRUST_LEVELS:
         raise InboxError(f"trust level must be 1, 2, or 3; got {level!r}")
-    resolved_origin = origin or _DEFAULT_ORIGIN_BY_LEVEL[level]
+    resolved_origin = origin or prev.get("origin") or _DEFAULT_ORIGIN_BY_LEVEL[level]
     if resolved_origin not in VALID_ORIGIN_LABELS:
         raise InboxError(f"origin must be one of {VALID_ORIGIN_LABELS}; got {resolved_origin!r}")
-    clean_topics = [str(t).strip() for t in (topics or ()) if str(t).strip()]
+    clean_topics = [str(t).strip() for t in (topics if topics else prev.get("topics", ())) if str(t).strip()]
     if level == 3 and not clean_topics:
         raise InboxError("trust level L3 requires at least one topic in --topic")
+    resolved_attested = (
+        bool(prev.get("remote_trust_attested", False))
+        if remote_trust_attested is None
+        else bool(remote_trust_attested)
+    )
+    resolved_label = (
+        str(prev.get("label", "")).strip()
+        if label is None
+        else str(label).strip()
+    )
+    if len(resolved_label) > 160:
+        raise InboxError("peer_trust label must be a string up to 160 characters")
     peers = set(policy.allowed_peers) | {norm}
     new_trust = dict(policy.peer_trust or {})
-    new_trust[norm] = {
+    entry = {
         "level": int(level),
         "origin": resolved_origin,
         "topics": clean_topics,
-        "remote_trust_attested": bool(remote_trust_attested),
+        "remote_trust_attested": resolved_attested,
     }
+    if resolved_label:
+        entry["label"] = resolved_label
+    new_trust[norm] = entry
+    new_notes = dict(policy.peer_notes or {})
+    if label is not None:
+        if resolved_label:
+            new_notes[norm] = resolved_label
+        else:
+            new_notes.pop(norm, None)
     data = _policy_to_json_data(
         policy,
         peer_trust=new_trust,
         owner_send_permits=policy.owner_send_permits,
+        peer_notes=new_notes,
     )
     data["allowed_peers"] = sorted(peers)
     return _write_policy_data(data, replace=True)
@@ -686,9 +778,16 @@ def active_policy():
     policy = load_policy()
     if policy is None or not policy.enabled:
         raise InboxError("Private inbox is closed: it is not configured or is disabled by the owner.")
-    from .server import _relay_url
-    if policy.relay != _relay_url():
-        raise InboxError("Relay address differs from the owner-configured inbox policy.")
+    from .server import _relay_url, _relay_urls
+    current_relay = _relay_url()
+    if policy.relay != current_relay:
+        configured_urls = _relay_urls()
+        same_official_network = (
+            policy.relay in _OFFICIAL_A4A_RELAYS
+            and current_relay in _OFFICIAL_A4A_RELAYS
+        )
+        if policy.relay not in configured_urls and not same_official_network:
+            raise InboxError("Relay address differs from the owner-configured inbox policy.")
     if _existing_keys().pubkey_hex != policy.recipient:
         raise InboxError("inbox identity differs from the owner-configured recipient")
     return policy
@@ -1092,12 +1191,37 @@ def shown_content(message, *, origin_label: str | None = None, trust_level: int 
     )
 
 
+def _owner_contact_onboarding_prompt(peer_apub: str, peer_label: str = "") -> str:
+    label_hint = f" (current label: {peer_label!r})" if peer_label else " (currently unlabeled)"
+    return (
+        f"NEW EXTERNAL CONTACT ({peer_apub}{label_hint}, Trust Level L1): "
+        "Immediately notify your human owner in your primary chat/DM that this contact connected "
+        "and show their introduction/message. Ask your owner: "
+        f"(1) how to sign/label this contact (save via: python -I -m a4a_mcp set-trust --peer {peer_apub} --label \"Name / Role\"), "
+        f"(2) whether to keep Trust Level L1 (manual approval for every reply) or set L2 (--trust-level 2, autonomous routine work replies while blocking money/promises/client data), and "
+        "(3) whether to send a reply."
+    )
+
+
 def _attach_trust_metadata(message: dict, policy: InboxPolicy, *, is_owner_agent: bool = False) -> None:
+    from a4a.keys import Keys
+    raw_content = message.get("content", "")
     peer_info = policy.peer_policy(message["from_pubkey"], is_owner_agent=is_owner_agent)
     message["origin_label"] = peer_info["origin"]
     message["trust_level"] = peer_info["level"]
+    if peer_info.get("label"):
+        message["peer_label"] = peer_info["label"]
     message["trust_policy"] = peer_info
     message["bridge_preamble"] = MANDATORY_BRIDGE_PREAMBLE_RU
+    if (
+        "[A4A_INVITE_ACCEPTANCE_V1]" in raw_content
+        or (peer_info["level"] == 1 and peer_info["origin"] == "external_contact" and not peer_info.get("label"))
+    ):
+        sender_apub = Keys.encode_apub(message["from_pubkey"])
+        message["owner_onboarding_prompt"] = _owner_contact_onboarding_prompt(
+            sender_apub,
+            peer_info.get("label", ""),
+        )
     message["content"] = shown_content(
         message,
         origin_label=peer_info["origin"],
@@ -1111,12 +1235,14 @@ def open_runtime():
     keys = _existing_keys()
     if keys.pubkey_hex != policy.recipient:
         raise InboxError("inbox identity differs from the owner-configured recipient")
-    # Read from ALL configured relays rather than only the policy relay. The checks
-    # above guarantee that the FIRST address matches policy, so ``policy.relay``
-    # remains the stable binding while additional relays only add retrieval paths.
-    # Otherwise, losing the sole relay would lose every unread message on it.
+    # Read from ALL configured relays rather than only the policy relay. Include
+    # ``policy.relay`` first when switching between official regional relays (e.g.
+    # eu1 and ru1) so neither relay loses unread messages or fails policy validation.
     from .server import _relay_urls
-    agent = Agent(_relay_urls(), keys=keys)
+    relays = list(_relay_urls())
+    if policy.relay not in relays:
+        relays.insert(0, policy.relay)
+    agent = Agent(relays, keys=keys)
     agent.public_journal_dir = identity.IDENTITY_DIR / "publications" / keys.pubkey_hex
     with _open_store(policy) as store:
         if policy.allowed_owners and store.dialogue_enabled():
@@ -1664,6 +1790,45 @@ def _public_invite_view(rec: dict, now: int | None = None, *, include_url: bool 
     return out
 
 
+async def _broadcast_extra_relays(events: list, extra_relays: list[str]) -> None:
+    """Best-effort broadcast of rendezvous/handshake events to additional relays."""
+    from a4a.relay import RelayClient
+    for r_url in extra_relays:
+        client = RelayClient(r_url)
+        try:
+            await client.connect()
+            for ev in events:
+                with contextlib.suppress(Exception):
+                    await client.publish(ev)
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                await client.aclose()
+
+
+async def _query_extra_relays(filter_spec: dict, extra_relays: list[str]) -> list:
+    """Best-effort query across additional official relays when primary relay has no match."""
+    from a4a.relay import RelayClient
+    found = []
+    seen_ids = set()
+    for r_url in extra_relays:
+        client = RelayClient(r_url)
+        try:
+            await client.connect()
+            evs = await client.query(filter_spec)
+            for ev in evs:
+                if ev.id not in seen_ids:
+                    seen_ids.add(ev.id)
+                    found.append(ev)
+        except Exception:
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                await client.aclose()
+    return found
+
+
 async def create_invitation(
     *,
     ttl_seconds: int = 24 * 3600,
@@ -1681,11 +1846,18 @@ async def create_invitation(
     )
     with open_runtime() as (policy, agent, _):
         now = int(time.time())
+        own_relays = list(agent._own_relays)
+        extra_public = (
+            [r for r in _CORE_PUBLIC_RELAYS if r not in own_relays]
+            if policy.relay in _OFFICIAL_A4A_RELAYS
+            else []
+        )
+        advertised_relays = own_relays + [r for r in extra_public if len(own_relays) + 1 <= 8][:max(0, 8 - len(own_relays))]
         try:
             secret = generate_invite_secret()
             card, eph_keys = InvitationCard.create(
                 agent.keys,
-                list(agent._own_relays),
+                advertised_relays,
                 ttl_seconds=ttl_seconds,
                 label=label,
                 now=now,
@@ -1707,6 +1879,8 @@ async def create_invitation(
             await agent._broadcast(card_event)
         finally:
             await agent.relay.aclose()
+        if extra_public:
+            await _broadcast_extra_relays([deleg_event, card_event], extra_public)
 
         # Prune old expired/revoked invitations if near the 100-item bound.
         inv_map = dict(policy.invitations or {})
@@ -1776,6 +1950,13 @@ async def revoke_invitation(invite_id: str) -> dict:
             log.warning("could not broadcast invitation revocation to relay; local revocation still applied")
         finally:
             await agent.relay.aclose()
+        extra_public = (
+            [r for r in _CORE_PUBLIC_RELAYS if r not in agent._own_relays]
+            if policy.relay in _OFFICIAL_A4A_RELAYS
+            else []
+        )
+        if extra_public:
+            await _broadcast_extra_relays([deleg_event, revoke_ev], extra_public)
         rec = dict(rec)
         rec["status"] = "revoked"
         inv_map[invite_id] = rec
@@ -1872,12 +2053,14 @@ def try_redeem_inband_invitation(agent, outer_event) -> dict | None:
         acceptance.responder_pubkey,
         acceptance.responded_at,
     )
+    responder_apub = Keys.encode_apub(acceptance.responder_pubkey)
     return {
         "invite_id": rec["invite_id"],
         "responder_pubkey": acceptance.responder_pubkey,
-        "responder_apub": Keys.encode_apub(acceptance.responder_pubkey),
+        "responder_apub": responder_apub,
         "trust_level": 1,
         "origin_label": "external_contact",
+        "owner_onboarding_prompt": _owner_contact_onboarding_prompt(responder_apub),
     }
 
 
@@ -1888,6 +2071,7 @@ async def check_invitation(invite_id: str | None = None) -> dict:
         derive_rendezvous_keys,
         is_valid_invite_token,
     )
+    from a4a.keys import Keys
     if invite_id is not None and not is_valid_invite_token(invite_id):
         raise InboxError("invalid invite_id")
     with open_runtime() as (policy, agent, _):
@@ -1901,18 +2085,27 @@ async def check_invitation(invite_id: str | None = None) -> dict:
             if _effective_invite_status(inv_map[tid], now) == "open"
         ]
         newly_connected = []
+        onboarding_prompts = []
+        extra_public = (
+            [r for r in _CORE_PUBLIC_RELAYS if r not in agent._own_relays]
+            if policy.relay in _OFFICIAL_A4A_RELAYS
+            else []
+        )
         if open_targets:
             await agent.relay.connect()
             try:
                 for tid in open_targets:
                     rec = inv_map[tid]
                     rk = derive_rendezvous_keys(tid, rec["secret"])
-                    events = await agent.relay.query({
+                    q_filter = {
                         "kinds": [types.KIND_PRIVATE_MESSAGE],
                         "authors": [rk.pubkey_hex],
                         "#p": [rk.pubkey_hex],
                         "#d": [f"accept:{tid}"],
-                    })
+                    }
+                    events = await agent.relay.query(q_filter)
+                    if not events and extra_public:
+                        events = await _query_extra_relays(q_filter, extra_public)
                     if not events:
                         continue
                     events.sort(key=lambda e: (e.created_at, e.id))
@@ -1943,6 +2136,9 @@ async def check_invitation(invite_id: str | None = None) -> dict:
                         except Exception:
                             pass
                         newly_connected.append(tid)
+                        onboarding_prompts.append(
+                            _owner_contact_onboarding_prompt(Keys.encode_apub(acc.responder_pubkey))
+                        )
                         break
             finally:
                 await agent.relay.aclose()
@@ -1950,12 +2146,15 @@ async def check_invitation(invite_id: str | None = None) -> dict:
             _public_invite_view(inv_map[tid], now, include_url=True)
             for tid in targets
         ]
-        return {
+        out = {
             "checked": len(targets),
             "newly_connected": newly_connected,
             "invitations": views,
             "as_of": time.time(),
         }
+        if onboarding_prompts:
+            out["owner_onboarding_prompt"] = onboarding_prompts[0] if len(onboarding_prompts) == 1 else onboarding_prompts
+        return out
 
 
 async def accept_invitation(url: str, *, intro: str = "") -> dict:
@@ -1986,14 +2185,22 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
 
     with open_runtime() as (policy, agent, _):
         now = int(time.time())
+        extra_public = (
+            [r for r in _CORE_PUBLIC_RELAYS if r not in agent._own_relays]
+            if policy.relay in _OFFICIAL_A4A_RELAYS
+            else []
+        )
         await agent.relay.connect()
         try:
-            card_events = await agent.relay.query({
+            card_filter = {
                 "kinds": [types.KIND_PRIVATE_MESSAGE],
                 "authors": [rk.pubkey_hex],
                 "#p": [rk.pubkey_hex],
                 "#d": [f"card:{invite_id}"],
-            })
+            }
+            card_events = await agent.relay.query(card_filter)
+            if not card_events and extra_public:
+                card_events = await _query_extra_relays(card_filter, extra_public)
             if not card_events:
                 raise InboxError(
                     "invitation card was not found on the relay (it may have expired or been published to a different relay)"
@@ -2015,12 +2222,15 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
             if card.inviter_pubkey == policy.recipient:
                 raise InboxError("an agent cannot accept its own invitation")
 
-            existing_accepts = await agent.relay.query({
+            accept_filter = {
                 "kinds": [types.KIND_PRIVATE_MESSAGE],
                 "authors": [rk.pubkey_hex],
                 "#p": [rk.pubkey_hex],
                 "#d": [f"accept:{invite_id}"],
-            })
+            }
+            existing_accepts = await agent.relay.query(accept_filter)
+            if not existing_accepts and extra_public:
+                existing_accepts = await _query_extra_relays(accept_filter, extra_public)
             if existing_accepts and card.inviter_pubkey not in policy.allowed_peers:
                 raise InboxError("this one-time invitation has already been redeemed")
 
@@ -2053,12 +2263,15 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
             blocked = set(policy.blocked_senders) - {card.inviter_pubkey}
             new_trust = dict(policy.peer_trust or {})
             if card.inviter_pubkey not in new_trust:
-                new_trust[card.inviter_pubkey] = {
+                entry = {
                     "level": 1,
                     "origin": "external_contact",
                     "topics": [],
                     "remote_trust_attested": False,
                 }
+                if card.label:
+                    entry["label"] = card.label
+                new_trust[card.inviter_pubkey] = entry
             data = _policy_to_json_data(
                 policy,
                 peer_trust=new_trust,
@@ -2082,6 +2295,18 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
                 inband_msg,
                 wrap=True,
             )
+            inviter_extra = [
+                r for r in (*card.relays, *extra_public)
+                if r not in agent._own_relays
+            ]
+            if inviter_extra:
+                from a4a import nip59
+                _, inner_ev = agent._build_private_message_event(card.inviter_pubkey, inband_msg)
+                extra_wrap = nip59.wrap_event(inner_ev, agent.keys, card.inviter_pubkey)
+                await _broadcast_extra_relays(
+                    [deleg_event, accept_ev, extra_wrap],
+                    list(dict.fromkeys(inviter_extra)),
+                )
         finally:
             await agent.relay.aclose()
 
@@ -2094,6 +2319,7 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
             "trust_level": 1,
             "origin_label": "external_contact",
             "handshake_event_id": inband_event_id,
+            "owner_onboarding_prompt": _owner_contact_onboarding_prompt(card.inviter_apub, card.label),
         }
 
 

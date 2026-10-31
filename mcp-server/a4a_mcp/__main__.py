@@ -353,14 +353,16 @@ def _inbox_admin(argv):
     set_trust = commands.add_parser(
         "set-trust",
         description=("Owner command: set trust level (1=manual, 2=autonomous routine, "
-                     "3=scoped autonomous), origin label, and allowed topics for a peer."))
+                     "3=scoped autonomous), origin label, human contact label, and allowed topics for a peer."))
     set_trust.add_argument("--peer", required=True, help="Peer 64-hex or apub1... address")
-    set_trust.add_argument("--trust-level", type=int, required=True, choices=(1, 2, 3))
+    set_trust.add_argument("--trust-level", type=int, default=None, choices=(1, 2, 3))
     set_trust.add_argument("--origin", choices=("external_contact", "own_developer",
                                                 "scoped_partner", "owner_agent"))
+    set_trust.add_argument("--label", default=None,
+                           help="Optional human-readable contact label/name (up to 160 chars)")
     set_trust.add_argument("--topic", action="append", default=[],
                            help="Allowed topic for L3 scoped autonomy (may be repeated)")
-    set_trust.add_argument("--remote-attested", action="store_true",
+    set_trust.add_argument("--remote-attested", action="store_true", default=None,
                            help="Confirm that the remote peer also granted L3 on the shared topic")
     approve_send = commands.add_parser(
         "approve-send",
@@ -568,12 +570,15 @@ def _inbox_admin(argv):
             _quiet_poll_logs()
             asyncio.run(observe())
         elif args.command == "set-trust":
+            if args.trust_level is None and args.label is None and args.origin is None and not args.topic and args.remote_attested is None:
+                raise InboxError("set-trust requires at least --trust-level or --label")
             policy = inbox_runtime.set_peer_trust(
                 args.peer,
                 level=args.trust_level,
                 origin=args.origin,
                 topics=args.topic,
                 remote_trust_attested=args.remote_attested,
+                label=args.label,
             )
             from a4a.keys import Keys
             norm = Keys.normalize_pubkey(args.peer)
@@ -860,6 +865,8 @@ def _onboarding_cli(argv: list[str]) -> None:
                          help="Optional trust level (1=manual, 2=autonomous routine, 3=scoped autonomous)")
     allow_p.add_argument("--origin", choices=("external_contact", "own_developer",
                                               "scoped_partner", "owner_agent"))
+    allow_p.add_argument("--label", default=None,
+                         help="Optional human-readable contact label/name (up to 160 chars)")
     allow_p.add_argument("--topic", action="append", default=[],
                          help="Allowed topic(s) when --trust-level 3 is set")
     allow_p.add_argument("--remote-attested", action="store_true",
@@ -946,7 +953,7 @@ def _onboarding_cli(argv: list[str]) -> None:
             start_after=start_after, replace=True,
             ack_on_receipt=ack_on_receipt, allowed_owners=owners,
         )
-        if args.trust_level is not None:
+        if args.trust_level is not None or args.label is not None:
             for norm in sorted(added_hex):
                 policy = inbox_runtime.set_peer_trust(
                     norm,
@@ -954,6 +961,7 @@ def _onboarding_cli(argv: list[str]) -> None:
                     origin=args.origin,
                     topics=args.topic,
                     remote_trust_attested=args.remote_attested,
+                    label=args.label,
                 )
 
         async def _import_waiting():
