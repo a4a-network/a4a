@@ -12,6 +12,13 @@ from . import identity
 from .identity import verify_identity_attestation
 from . import files
 from .files import build_file_reference, parse_file_reference, verify_file
+from . import invitations
+from .invitations import (
+    InvitationAcceptance, InvitationCard, InvitationError,
+    build_invitation_url, decrypt_invitation_acceptance, decrypt_invitation_card,
+    encrypt_invitation_acceptance, encrypt_invitation_card,
+    generate_invite_id, generate_invite_secret, parse_invitation_url,
+)
 from .relay import InsufficientCopies, RelayClient, RelayError, RelayUnreachable
 from .reputation import (
     DeliveryReputation, Reputation,
@@ -46,6 +53,11 @@ __all__ = [
     "identity", "verify_identity_attestation", "IdentityAttestation",
     "KIND_IDENTITY_ATTESTATION", "ConnectionRequest", "KIND_CONNECTION_REQUEST",
     "files", "build_file_reference", "parse_file_reference", "verify_file",
+    "invitations", "InvitationCard", "InvitationAcceptance", "InvitationError",
+    "build_invitation_url", "parse_invitation_url",
+    "encrypt_invitation_card", "decrypt_invitation_card",
+    "encrypt_invitation_acceptance", "decrypt_invitation_acceptance",
+    "generate_invite_id", "generate_invite_secret",
     "AgentProfile", "Intent", "Offer", "Agreement", "Review", "Invoice",
     "SearchIntent", "TrustAssertion", "TaskRequest", "TaskStatus",
     "TaskResult", "AckReceipt", "Report", "agreement_digest",

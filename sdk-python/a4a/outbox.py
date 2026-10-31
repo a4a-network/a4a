@@ -33,14 +33,40 @@ from .inbox import _private_directory
 
 STATES = ("sending", "acknowledged", "dead_letter", "publish_failed", "interrupted")
 
+#: Categorized outbound registry classes (2026-10-30 Trust Levels specification).
+OUTBOUND_CATEGORIES = (
+    "fact",
+    "money",
+    "promise",
+    "user_data",
+    "internal_metrics",
+    "routine_dev",
+)
+#: Outbound categories that ALWAYS require explicit owner approval regardless of trust level.
+RESTRICTED_OUTBOUND_CATEGORIES = frozenset({
+    "money",
+    "promise",
+    "user_data",
+    "internal_metrics",
+})
+
 #: Gaps between automatic rechecks, then every six hours, until RECHECK_GIVE_UP. A
 #: delivery that stays unacknowledged for two days is left for a person to look at.
 RECHECK_GAPS = (60, 300, 900, 3600, 10800)
 RECHECK_LAST_GAP = 21600
 RECHECK_GIVE_UP = 48 * 3600
 #: Columns added after the first journals were written; created on open when missing.
-_LATER_COLUMNS = (("ack_signed_at", "INTEGER"), ("checks", "INTEGER NOT NULL DEFAULT 0"),
-                  ("last_check", "REAL"))
+_LATER_COLUMNS = (
+    ("ack_signed_at", "INTEGER"),
+    ("checks", "INTEGER NOT NULL DEFAULT 0"),
+    ("last_check", "REAL"),
+    ("category", "TEXT"),
+    ("trust_level", "INTEGER"),
+    ("topic", "TEXT"),
+    ("content_sha256", "TEXT"),
+    ("owner_approved", "INTEGER NOT NULL DEFAULT 0"),
+    ("commitment_note", "TEXT"),
+)
 
 
 class OutboxError(RuntimeError):
@@ -116,15 +142,66 @@ class OutboxStore:
                 raise OutboxError("outbox database operation failed") from exc
             raise
 
-    def start(self, delivery_id: str, recipient: str, *, private: bool, since: int):
+    def set_context(self, *, category: str | None = None, trust_level: int | None = None,
+                    topic: str | None = None, content_sha256: str | None = None,
+                    owner_approved: bool = False, commitment_note: str | None = None):
+        """Bind outbound registry metadata for the next delivery started on this store."""
+        self._context = {
+            "category": category,
+            "trust_level": trust_level,
+            "topic": topic,
+            "content_sha256": content_sha256,
+            "owner_approved": owner_approved,
+            "commitment_note": commitment_note,
+        }
+
+    def start(self, delivery_id: str, recipient: str, *, private: bool, since: int,
+              category: str | None = None, trust_level: int | None = None,
+              topic: str | None = None, content_sha256: str | None = None,
+              owner_approved: bool = False, commitment_note: str | None = None):
         if not is_canonical_pubkey(recipient):
             raise OutboxError("invalid recipient")
+        ctx = getattr(self, "_context", None) or {}
+        eff_cat = category if category is not None else ctx.get("category")
+        eff_level = trust_level if trust_level is not None else ctx.get("trust_level")
+        eff_topic = topic if topic is not None else ctx.get("topic")
+        eff_sha = content_sha256 if content_sha256 is not None else ctx.get("content_sha256")
+        eff_approved = bool(owner_approved or ctx.get("owner_approved", False))
+        eff_note = commitment_note if commitment_note is not None else ctx.get("commitment_note")
+        if eff_cat is not None and eff_cat not in OUTBOUND_CATEGORIES:
+            raise OutboxError(f"invalid outbound category {eff_cat!r}")
         now = time.time()
         with self._transaction():
             self.db.execute(
                 "INSERT INTO deliveries (delivery_id, recipient, private, created, since, "
-                "updated, state) VALUES (?, ?, ?, ?, ?, ?, 'sending')",
-                (delivery_id, recipient, int(bool(private)), now, int(since), now))
+                "updated, state, category, trust_level, topic, content_sha256, "
+                "owner_approved, commitment_note) VALUES (?, ?, ?, ?, ?, ?, 'sending', "
+                "?, ?, ?, ?, ?, ?)",
+                (delivery_id, recipient, int(bool(private)), now, int(since), now,
+                 eff_cat, eff_level, eff_topic, eff_sha, int(eff_approved),
+                 eff_note))
+
+    def annotate(self, delivery_id: str, *, category: str | None = None,
+                 trust_level: int | None = None, topic: str | None = None,
+                 content_sha256: str | None = None, owner_approved: bool | None = None,
+                 commitment_note: str | None = None):
+        if category is not None and category not in OUTBOUND_CATEGORIES:
+            raise OutboxError(f"invalid outbound category {category!r}")
+        approved_int = None if owner_approved is None else int(bool(owner_approved))
+        with self._transaction():
+            cur = self.db.execute(
+                "UPDATE deliveries SET "
+                "category=COALESCE(?, category), "
+                "trust_level=COALESCE(?, trust_level), "
+                "topic=COALESCE(?, topic), "
+                "content_sha256=COALESCE(?, content_sha256), "
+                "owner_approved=COALESCE(?, owner_approved), "
+                "commitment_note=COALESCE(?, commitment_note) "
+                "WHERE delivery_id=?",
+                (category, trust_level, topic, content_sha256, approved_int,
+                 commitment_note, delivery_id))
+            if cur.rowcount != 1:
+                raise OutboxError("unknown delivery")
 
     def add_envelope(self, delivery_id: str, event: Event):
         with self._transaction():
@@ -197,6 +274,7 @@ class OutboxStore:
         record = dict(row)
         record["private"] = bool(record["private"])
         record["late"] = bool(record["late"])
+        record["owner_approved"] = bool(record.get("owner_approved"))
         record["envelope_ids"] = [r["event_id"] for r in self.db.execute(
             "SELECT event_id FROM envelopes WHERE delivery_id=? ORDER BY seq",
             (record["delivery_id"],))]
@@ -207,13 +285,30 @@ class OutboxStore:
             "SELECT * FROM deliveries WHERE delivery_id=?", (delivery_id,)).fetchone()
         return self._record(row) if row else None
 
-    def list(self, states=None, limit: int = 100) -> list[dict]:
+    def list(self, states=None, limit: int = 100, *, category: str | None = None,
+             recipient: str | None = None, commitments_only: bool = False) -> list[dict]:
+        clauses: list[str] = []
+        params: list[object] = []
         if states:
             marks = ",".join("?" * len(states))
-            rows = self.db.execute(
-                f"SELECT * FROM deliveries WHERE state IN ({marks}) ORDER BY created DESC LIMIT ?",
-                (*states, limit))
-        else:
-            rows = self.db.execute(
-                "SELECT * FROM deliveries ORDER BY created DESC LIMIT ?", (limit,))
+            clauses.append(f"state IN ({marks})")
+            params.extend(states)
+        if category is not None:
+            if category not in OUTBOUND_CATEGORIES:
+                raise OutboxError(f"invalid outbound category {category!r}")
+            clauses.append("COALESCE(category, 'routine_dev') = ?")
+            params.append(category)
+        if recipient is not None:
+            if not is_canonical_pubkey(recipient):
+                raise OutboxError("invalid recipient filter")
+            clauses.append("recipient = ?")
+            params.append(recipient)
+        if commitments_only:
+            marks = ",".join("?" * len(RESTRICTED_OUTBOUND_CATEGORIES))
+            clauses.append(f"category IN ({marks})")
+            params.extend(sorted(RESTRICTED_OUTBOUND_CATEGORIES))
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self.db.execute(
+            f"SELECT * FROM deliveries{where} ORDER BY created DESC LIMIT ?",
+            (*params, limit))
         return [self._record(r) for r in rows.fetchall()]

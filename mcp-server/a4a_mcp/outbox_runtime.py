@@ -10,13 +10,19 @@ from __future__ import annotations
 import logging
 import time
 
-from a4a.outbox import RECHECK_GIVE_UP, OutboxStore
+from a4a.outbox import (
+    OUTBOUND_CATEGORIES,
+    RECHECK_GIVE_UP,
+    RESTRICTED_OUTBOUND_CATEGORIES,
+    OutboxStore,
+)
 from a4a.relay import RelayError
 
 from . import identity
 
 _FIELDS = ("delivery_id", "recipient", "private", "state", "attempts", "ack_status",
            "late", "republished", "created", "updated", "ack_at", "ack_signed_at")
+_REGISTRY_OPTIONAL_FIELDS = ("trust_level", "topic", "content_sha256", "commitment_note")
 
 #: States whose outcome can still change while rechecks run.
 _UNCONFIRMED = ("dead_letter", "interrupted", "sending")
@@ -70,6 +76,11 @@ async def recheck_due_on(agent, *, now: float | None = None) -> dict:
 
 def _public(record: dict, now: float | None = None) -> dict:
     shown = {key: record[key] for key in _FIELDS}
+    shown["category"] = record.get("category") or "routine_dev"
+    shown["owner_approved"] = bool(record.get("owner_approved"))
+    for opt in _REGISTRY_OPTIONAL_FIELDS:
+        if record.get(opt) is not None:
+            shown[opt] = record[opt]
     shown["envelopes"] = len(record["envelope_ids"])
     moment = time.time() if now is None else now
     shown["rechecks_until"] = record["created"] + RECHECK_GIVE_UP
@@ -103,15 +114,23 @@ def _public(record: dict, now: float | None = None) -> dict:
 def summary(now: float | None = None) -> dict:
     """Counts with the moment they were taken: a count without a time misleads (26.09)."""
     moment = time.time() if now is None else now
+    empty_categories = {cat: 0 for cat in OUTBOUND_CATEGORIES}
     if not _journal_exists():
         return {"as_of": moment, "total": 0, "processed": 0, "stored_not_processed": 0,
                 "stored_not_processed_final": 0, "unconfirmed": 0, "unconfirmed_final": 0,
-                "not_delivered": 0}
+                "not_delivered": 0, "by_category": empty_categories, "commitments_count": 0}
     with open_store() as store:
         records = [_public(r, moment) for r in store.list(None, 100_000)]
     unconfirmed = [r for r in records if r["state"] in _UNCONFIRMED]
     # Two levels of acknowledgement, never summed into one "delivered" (representative, 26.09).
     stored = [r for r in records if r["state"] == "acknowledged" and r["ack_status"] == "received"]
+    by_category = {cat: 0 for cat in OUTBOUND_CATEGORIES}
+    commitments_count = 0
+    for r in records:
+        cat = r.get("category") or "routine_dev"
+        by_category[cat] = by_category.get(cat, 0) + 1
+        if cat in RESTRICTED_OUTBOUND_CATEGORIES:
+            commitments_count += 1
     return {"as_of": moment, "total": len(records),
             "processed": sum(r["state"] == "acknowledged" and r["ack_status"] == "processed"
                              for r in records),
@@ -119,7 +138,9 @@ def summary(now: float | None = None) -> dict:
             "stored_not_processed_final": sum(r["final"] for r in stored),
             "unconfirmed": len(unconfirmed),
             "unconfirmed_final": sum(r["final"] for r in unconfirmed),
-            "not_delivered": sum(r["state"] == "publish_failed" for r in records)}
+            "not_delivered": sum(r["state"] == "publish_failed" for r in records),
+            "by_category": by_category,
+            "commitments_count": commitments_count}
 
 
 def get(delivery_id: str) -> dict | None:
@@ -128,9 +149,12 @@ def get(delivery_id: str) -> dict | None:
     return _public(record) if record else None
 
 
-def list_records(states=None, limit: int = 100) -> list[dict]:
+def list_records(states=None, limit: int = 100, *, category: str | None = None,
+                 recipient: str | None = None, commitments_only: bool = False) -> list[dict]:
     with open_store() as store:
-        return [_public(r) for r in store.list(states, limit)]
+        return [_public(r) for r in store.list(
+            states, limit, category=category, recipient=recipient,
+            commitments_only=commitments_only)]
 
 
 async def recheck(delivery_id: str) -> dict | None:

@@ -147,13 +147,17 @@ class InboxHistory:
 class InboxReceiver:
     def __init__(self, agent, store, allowed_senders, *, start_after,
                  history=None, max_pages=50, poll_seconds=30, ack_on_receipt=False,
-                 allowed_owners=None):
+                 allowed_owners=None, intake_mode=None, blocked_senders=None,
+                 inband_authorizer=None):
         if type(max_pages) is not int or not 1 <= max_pages <= 100:
             raise InboxError("invalid history work budget")
         if type(poll_seconds) is not int or not 5 <= poll_seconds <= 60:
             raise InboxError("history recovery interval must be 5..60 seconds")
         self.agent, self.store, self.allowed_senders = agent, store, allowed_senders
         self.allowed_owners = allowed_owners or (lambda: frozenset())
+        self.intake_mode = intake_mode or (lambda: "closed")
+        self.blocked_senders = blocked_senders or (lambda: frozenset())
+        self.inband_authorizer = inband_authorizer
         # Opt-in per mailbox. Without it the sender hears nothing until someone
         # completes the work, which on 23.09.2026 left a pilot sender retrying into
         # an hour of silence although both letters had arrived within seconds.
@@ -292,6 +296,13 @@ class InboxReceiver:
             if not rows:
                 return added, False
             peers = self._policy_senders()
+            if self.inband_authorizer is not None:
+                for _, event in rows:
+                    try:
+                        if self.inband_authorizer(self.agent, event):
+                            peers = self._policy_senders()
+                    except Exception:
+                        log.exception("a4a-inbox in-band invitation authorizer failed; ignoring")
             owners = self._policy_owners()
             candidates = set()
             if owners:
@@ -303,7 +314,11 @@ class InboxReceiver:
                 self.agent, peers, owners, candidates)
             if peers != self._policy_senders() or owners != self._policy_owners():
                 raise InboxPolicyChanged("inbox authorization changed during owner lookup")
-            result = self.store.accept_page(self.agent, url, cursor, rows, permitted)
+            result = self.store.accept_page(
+                self.agent, url, cursor, rows, permitted,
+                intake_mode=self.intake_mode(),
+                blocked_senders=self.blocked_senders(),
+            )
             added += result.count("stored")
             if self.ack_on_receipt:
                 # Only letters that were STORED: blocked senders are exactly the ones who

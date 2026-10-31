@@ -332,16 +332,48 @@ def _inbox_admin(argv):
                              "destructive compaction cannot rely on an unverified promise"))
     outbox_list = commands.add_parser(
         "outbox-list",
-        description=("Show the sender-side delivery journal: ids, states and counts only, "
-                     "never envelopes. Without --state, every record."))
+        description=("Show the sender-side delivery journal: ids, states, categories and counts "
+                     "only, never envelopes. Without --state, every record."))
     outbox_list.add_argument("--state", action="append",
                              choices=("sending", "acknowledged", "dead_letter",
                                       "publish_failed", "interrupted"))
+    outbox_list.add_argument("--category",
+                             choices=("fact", "money", "promise", "user_data",
+                                      "internal_metrics", "routine_dev"),
+                             help="filter by outbound registry category")
+    outbox_list.add_argument("--recipient", help="filter by recipient 64-hex or apub1... address")
+    outbox_list.add_argument("--commitments-only", action="store_true",
+                             help="show only restricted commitment/financial/data categories")
     outbox_list.add_argument("--limit", type=int, default=100)
     commands.add_parser(
         "outbox-summary",
         description=("Counts of the delivery journal with the moment they were taken: total, "
-                     "unconfirmed (rechecks still running), unconfirmed_final, not_delivered."))
+                     "unconfirmed (rechecks still running), unconfirmed_final, not_delivered, "
+                     "plus breakdown by_category and commitments_count."))
+    set_trust = commands.add_parser(
+        "set-trust",
+        description=("Owner command: set trust level (1=manual, 2=autonomous routine, "
+                     "3=scoped autonomous), origin label, and allowed topics for a peer."))
+    set_trust.add_argument("--peer", required=True, help="Peer 64-hex or apub1... address")
+    set_trust.add_argument("--trust-level", type=int, required=True, choices=(1, 2, 3))
+    set_trust.add_argument("--origin", choices=("external_contact", "own_developer",
+                                                "scoped_partner", "owner_agent"))
+    set_trust.add_argument("--topic", action="append", default=[],
+                           help="Allowed topic for L3 scoped autonomy (may be repeated)")
+    set_trust.add_argument("--remote-attested", action="store_true",
+                           help="Confirm that the remote peer also granted L3 on the shared topic")
+    approve_send = commands.add_parser(
+        "approve-send",
+        description=("Owner command: issue a single-use send permit for an L1 peer or a "
+                     "restricted outbound category (money, promise, user_data, internal_metrics)."))
+    approve_send.add_argument("--to", required=True, help="Recipient 64-hex or apub1... address")
+    approve_send.add_argument("--text", help="Exact message text approved for sending")
+    approve_send.add_argument("--text-file", help="File containing exact message text approved for sending")
+    approve_send.add_argument("--sha256", help="SHA-256 hex digest of approved message text")
+    approve_send.add_argument("--category", choices=("fact", "money", "promise", "user_data",
+                                                     "internal_metrics", "routine_dev"))
+    approve_send.add_argument("--ttl", type=int, default=3600,
+                              help="Permit validity in seconds (60..604800, default 3600)")
     file_status = commands.add_parser(
         "file-status", description=("Ask this mailbox's file gateway whether a sent file was "
                                     "fetched: stored, fetched, expired_unfetched or "
@@ -366,6 +398,16 @@ def _inbox_admin(argv):
     deliver.add_argument("--new-letter", action="store_true",
                          help="state that this is a new letter, not an answer; required "
                               "from 2026-10-11 (answer letters with reply)")
+    deliver.add_argument("--category", default="routine_dev",
+                         choices=("fact", "money", "promise", "user_data",
+                                  "internal_metrics", "routine_dev"))
+    deliver.add_argument("--topic", default="", help="topic tag for L3 topic-scoped peers")
+    deliver.add_argument("--owner-approval-token", default="",
+                         help="single-use permit token issued by approve-send")
+    deliver.add_argument("--owner-approved", action="store_true",
+                         help="explicit owner approval flag for L1 or restricted categories")
+    deliver.add_argument("--commitment-note", default="",
+                         help="short non-secret note for the outbound registry")
     body = deliver.add_mutually_exclusive_group(required=True)
     body.add_argument("--text")
     body.add_argument("--text-file")
@@ -376,6 +418,16 @@ def _inbox_admin(argv):
                      "a signed reference to the letter, delivery is journaled. The letter "
                      "must have been read once (inbox-next); no lease is needed."))
     reply.add_argument("--seq", required=True, type=int)
+    reply.add_argument("--category", default="routine_dev",
+                       choices=("fact", "money", "promise", "user_data",
+                                "internal_metrics", "routine_dev"))
+    reply.add_argument("--topic", default="", help="topic tag for L3 topic-scoped peers")
+    reply.add_argument("--owner-approval-token", default="",
+                       help="single-use permit token issued by approve-send")
+    reply.add_argument("--owner-approved", action="store_true",
+                       help="explicit owner approval flag for L1 or restricted categories")
+    reply.add_argument("--commitment-note", default="",
+                       help="short non-secret note for the outbound registry")
     reply_body = reply.add_mutually_exclusive_group(required=True)
     reply_body.add_argument("--text")
     reply_body.add_argument("--text-file")
@@ -385,6 +437,51 @@ def _inbox_admin(argv):
     lifetime.add_argument("--duration", type=int, default=3600)
     lifetime.add_argument("--forever", action="store_true",
                           help="observe without a lifetime limit until stopped; installs no service")
+    create_invite = commands.add_parser(
+        "create-invite",
+        description=("Create a one-time expiring invitation link (https://a4a.network/i/<id>#<secret>) "
+                     "so the remote agent can complete a mutual A4A handshake in one step at L1."))
+    create_invite.add_argument("--ttl", type=int, default=86400,
+                               help="Invitation lifetime in seconds (60..604800, default 86400)")
+    create_invite.add_argument("--label", default="",
+                               help="Optional human label encrypted inside the invitation card")
+    create_invite.add_argument("--base-url", default="https://a4a.network/i")
+    accept_invite = commands.add_parser(
+        "accept-invite",
+        description=("Redeem a one-time invitation link, admit the inviter at Trust Level L1 "
+                     "(external_contact), and send back the signed handshake."))
+    accept_invite.add_argument("--url", required=True,
+                               help="Full invitation URL including the #<secret> fragment")
+    accept_invite.add_argument("--intro", default="",
+                               help="Optional short introduction note")
+    check_invite = commands.add_parser(
+        "check-invite",
+        description="Check one or all invitations and finalize any pending rendezvous acceptances.")
+    check_invite.add_argument("--invite-id", help="Specific invite_id to check")
+    revoke_invite = commands.add_parser(
+        "revoke-invite",
+        description="Revoke an open one-time invitation locally and overwrite its card on relays.")
+    revoke_invite.add_argument("--invite-id", required=True)
+    list_invites = commands.add_parser(
+        "list-invites",
+        description="List one-time invitations created by this mailbox.")
+    list_invites.add_argument("--include-url", action="store_true")
+    intake_mode = commands.add_parser(
+        "set-intake-mode",
+        description="Set intake mode for unrecognized senders: closed, reception, or public_service.")
+    intake_mode.add_argument("--mode", required=True,
+                             choices=("closed", "reception", "public_service"))
+    q_list = commands.add_parser(
+        "quarantine-list",
+        description="Show digest of quarantined reception inquiries (Trust Level L0).")
+    q_list.add_argument("--state", default="pending",
+                        choices=("pending", "accepted", "rejected", "blocked", "all"))
+    q_list.add_argument("--limit", type=int, default=50)
+    q_decide = commands.add_parser(
+        "quarantine-decide",
+        description="Apply owner decision to a quarantined inquiry: accept (promote to L1), reject, or block.")
+    q_decide.add_argument("--req-id", type=int, required=True)
+    q_decide.add_argument("--decision", required=True, choices=("accept", "reject", "block"))
     args = parser.parse_args(argv)
     if sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
         sys.stdout.reconfigure(encoding="utf-8")
@@ -396,10 +493,16 @@ def _inbox_admin(argv):
         if args.once:
             from a4a.inbox_receiver import InboxReceiver
             with inbox_runtime.open_runtime() as (policy, agent, store):
-                receiver = InboxReceiver(agent, store, lambda: inbox_runtime.refresh_policy(policy).allowed_peers,
-                                         start_after=policy.start_after,
-                                         ack_on_receipt=policy.ack_on_receipt,
-                                         allowed_owners=lambda: inbox_runtime.refresh_policy(policy).allowed_owners)
+                receiver = InboxReceiver(
+                    agent, store,
+                    lambda: inbox_runtime.refresh_policy(policy).allowed_peers,
+                    start_after=policy.start_after,
+                    ack_on_receipt=policy.ack_on_receipt,
+                    allowed_owners=lambda: inbox_runtime.refresh_policy(policy).allowed_owners,
+                    intake_mode=lambda: inbox_runtime.refresh_policy(policy).intake_mode,
+                    blocked_senders=lambda: inbox_runtime.refresh_policy(policy).blocked_senders,
+                    inband_authorizer=inbox_runtime.try_redeem_inband_invitation,
+                )
                 async def flush_acks():
                     await inbox_runtime._flush_completion_acks(policy, agent, store)
                     await inbox_runtime._recheck_sent_deliveries(agent)
@@ -464,12 +567,72 @@ def _inbox_admin(argv):
         elif args.command == "inbox-watch":
             _quiet_poll_logs()
             asyncio.run(observe())
+        elif args.command == "set-trust":
+            policy = inbox_runtime.set_peer_trust(
+                args.peer,
+                level=args.trust_level,
+                origin=args.origin,
+                topics=args.topic,
+                remote_trust_attested=args.remote_attested,
+            )
+            from a4a.keys import Keys
+            norm = Keys.normalize_pubkey(args.peer)
+            emit({"state": "trust_updated", "peer": norm,
+                  "peer_policy": policy.peer_policy(norm)})
+        elif args.command == "approve-send":
+            if args.text_file and args.text:
+                raise InboxError("pass either --text or --text-file, not both")
+            approved_text = (pathlib.Path(args.text_file).read_text(encoding="utf-8")
+                             if args.text_file else args.text)
+            permit = inbox_runtime.grant_send_permit(
+                args.to,
+                text=approved_text,
+                content_sha256=args.sha256,
+                category=args.category,
+                ttl_seconds=args.ttl,
+            )
+            emit({"state": "permit_issued", **permit})
+        elif args.command == "create-invite":
+            emit(asyncio.run(inbox_runtime.create_invitation(
+                ttl_seconds=args.ttl,
+                label=args.label,
+                base_url=args.base_url,
+            )))
+        elif args.command == "accept-invite":
+            emit(asyncio.run(inbox_runtime.accept_invitation(
+                args.url,
+                intro=args.intro,
+            )))
+        elif args.command == "check-invite":
+            emit(asyncio.run(inbox_runtime.check_invitation(args.invite_id)))
+        elif args.command == "revoke-invite":
+            emit(asyncio.run(inbox_runtime.revoke_invitation(args.invite_id)))
+        elif args.command == "list-invites":
+            emit({"invitations": inbox_runtime.list_invitations(include_url=args.include_url)})
+        elif args.command == "set-intake-mode":
+            pol = inbox_runtime.set_intake_mode(args.mode)
+            emit({"state": "intake_mode_updated", "intake_mode": pol.intake_mode})
+        elif args.command == "quarantine-list":
+            state_filter = None if args.state == "all" else args.state
+            emit(inbox_runtime.quarantine_digest(state=state_filter, limit=args.limit))
+        elif args.command == "quarantine-decide":
+            emit(inbox_runtime.quarantine_decide(args.req_id, args.decision))
         elif args.command == "deliver":
             from . import server
             text = (pathlib.Path(args.text_file).read_text(encoding="utf-8")
                     if args.text_file else args.text)
-            delivery = server.a4a_deliver(args.to, text, args.conversation_id,
-                                          new_letter=args.new_letter)
+            token = args.owner_approval_token
+            if args.owner_approved and not token:
+                token = inbox_runtime.grant_send_permit(
+                    args.to, text=text, category=args.category)["token"]
+            delivery = server.a4a_deliver(
+                args.to, text, args.conversation_id,
+                new_letter=args.new_letter,
+                category=args.category,
+                topic=args.topic,
+                owner_approval_token=token,
+                commitment_note=args.commitment_note,
+            )
             result = _run_delivery(delivery, emit)
             emit({"result": result})
             _exit_for_delivery(result)
@@ -477,7 +640,21 @@ def _inbox_admin(argv):
             from . import server
             text = (pathlib.Path(args.text_file).read_text(encoding="utf-8")
                     if args.text_file else args.text)
-            result = _run_delivery(server.a4a_reply(args.seq, text), emit)
+            token = args.owner_approval_token
+            if args.owner_approved and not token:
+                target = inbox_runtime.reply_target(args.seq)
+                token = inbox_runtime.grant_send_permit(
+                    target["to_pubkey"], text=text, category=args.category)["token"]
+            result = _run_delivery(
+                server.a4a_reply(
+                    args.seq, text,
+                    category=args.category,
+                    topic=args.topic,
+                    owner_approval_token=token,
+                    commitment_note=args.commitment_note,
+                ),
+                emit,
+            )
             emit({"result": result})
             _exit_for_delivery(result)
         elif args.command == "file-status":
@@ -511,7 +688,16 @@ def _inbox_admin(argv):
             elif args.command == "outbox-list":
                 if not 1 <= args.limit <= 1000:
                     raise SystemExit("A4A outbox: --limit must be 1..1000")
-                emit(outbox_runtime.list_records(args.state, args.limit))
+                recip = None
+                if args.recipient:
+                    from a4a.keys import Keys
+                    recip = Keys.normalize_pubkey(args.recipient)
+                emit(outbox_runtime.list_records(
+                    args.state, args.limit,
+                    category=args.category,
+                    recipient=recip,
+                    commitments_only=args.commitments_only,
+                ))
             elif args.command == "outbox-recheck":
                 record = asyncio.run(outbox_runtime.recheck(args.delivery_id))
                 if record is None:
@@ -640,10 +826,9 @@ def _admin(argv: list[str]) -> None:
 DEMO_AGENT_APUB = "apub1jqahsu46f6gwm7husjlmvzvhggrdfugjda8gjl0tnr9wcq2z6casj59wqj"
 DEFAULT_PUBLIC_RELAYS = (
     "wss://eu1.a4a.network",
-    "wss://eu2.a4a.network",
     "wss://us1.a4a.network",
-    "wss://us2.a4a.network",
     "wss://sg1.a4a.network",
+    "wss://ru1.a4a.network",
 )
 
 
@@ -663,7 +848,7 @@ def _onboarding_cli(argv: list[str]) -> None:
     setup_p.add_argument("--agent-name", default="My AI Agent")
     setup_p.add_argument("--capabilities", default="general,research,coding")
     setup_p.add_argument("--category", default="other")
-    setup_p.add_argument("--languages", default="en")
+    setup_p.add_argument("--languages", default="ru,en")
     setup_p.add_argument("--description", default="Personal AI Agent on A4A")
     setup_p.add_argument("--allow-peer", action="append", default=[])
     setup_p.add_argument("--consumer", default="mcp-agent")
@@ -671,6 +856,14 @@ def _onboarding_cli(argv: list[str]) -> None:
 
     allow_p = sub.add_parser("allow-peer", description="Add one or more apub1.../hex peers to allowed_peers and import any waiting letters from them.")
     allow_p.add_argument("peers", nargs="+", help="Peer apub1... or 64-hex address(es)")
+    allow_p.add_argument("--trust-level", type=int, choices=(1, 2, 3), default=None,
+                         help="Optional trust level (1=manual, 2=autonomous routine, 3=scoped autonomous)")
+    allow_p.add_argument("--origin", choices=("external_contact", "own_developer",
+                                              "scoped_partner", "owner_agent"))
+    allow_p.add_argument("--topic", action="append", default=[],
+                         help="Allowed topic(s) when --trust-level 3 is set")
+    allow_p.add_argument("--remote-attested", action="store_true",
+                         help="Confirm bilateral L3 attestation on the shared topic")
 
     req_p = sub.add_parser("inbox-requests", description="Check relays for incoming messages from senders not yet in allowed_peers (contact requests).")
     req_p.add_argument("--days", type=int, default=14, help="Lookback window in days (default: 14)")
@@ -753,6 +946,15 @@ def _onboarding_cli(argv: list[str]) -> None:
             start_after=start_after, replace=True,
             ack_on_receipt=ack_on_receipt, allowed_owners=owners,
         )
+        if args.trust_level is not None:
+            for norm in sorted(added_hex):
+                policy = inbox_runtime.set_peer_trust(
+                    norm,
+                    level=args.trust_level,
+                    origin=args.origin,
+                    topics=args.topic,
+                    remote_trust_attested=args.remote_attested,
+                )
 
         async def _import_waiting():
             imported = 0

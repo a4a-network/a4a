@@ -155,6 +155,20 @@ class InboxStore:
                 self.db.execute("CREATE INDEX IF NOT EXISTS inbox_pending ON messages(state, seq)")
                 self.db.execute("CREATE TABLE IF NOT EXISTS cursors (relay TEXT PRIMARY KEY, stamp INTEGER NOT NULL, event_id TEXT NOT NULL)")
                 self.db.execute("CREATE TABLE IF NOT EXISTS wakeups (singleton INTEGER PRIMARY KEY CHECK(singleton=1), last REAL NOT NULL, window REAL NOT NULL, count INTEGER NOT NULL)")
+                self.db.execute("""CREATE TABLE IF NOT EXISTS quarantine_requests (
+                    req_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender TEXT NOT NULL UNIQUE,
+                    dedup TEXT NOT NULL,
+                    digest TEXT NOT NULL,
+                    inner_id TEXT NOT NULL,
+                    outer_id TEXT NOT NULL,
+                    delivery_id TEXT NOT NULL,
+                    envelope TEXT NOT NULL,
+                    preview TEXT NOT NULL DEFAULT '',
+                    received REAL NOT NULL,
+                    expires REAL,
+                    state TEXT NOT NULL DEFAULT 'pending',
+                    decided_at REAL)""")
         except BaseException:
             self.db.close()
             raise
@@ -178,7 +192,7 @@ class InboxStore:
                 raise InboxStorageError("inbox database operation failed; no success receipt") from exc
             raise
 
-    def _prepare(self, agent, outer, allowed, now):
+    def _prepare(self, agent, outer, allowed, now, *, intake_mode="closed", blocked_senders=frozenset()):
         if agent.pubkey != self.recipient:
             raise InboxConflict("decoder identity does not match inbox")
         if not isinstance(outer, Event) or not outer.verify_protocol():
@@ -210,7 +224,8 @@ class InboxStore:
         if any(tag and tag[0] in types.ORGANIZATION_ONLY_PRIVATE_TAGS
                for tag in inner.tags):
             return "ignored", None
-        if inner.pubkey not in allowed:
+        is_allowed = inner.pubkey in allowed
+        if not is_allowed and (inner.pubkey in blocked_senders or intake_mode != "reception"):
             return "blocked", None
         inner_expiry = [t[1] for t in inner.tags if len(t) >= 2 and t[0] == "expiration"]
         if len(inner_expiry) > 1 or (inner_expiry and not re.fullmatch(r"[0-9]{1,12}", inner_expiry[0])):
@@ -227,7 +242,8 @@ class InboxStore:
             # classify it as a rejected row so accept_page can still atomically move
             # its cursor past the poison envelope and retain later valid messages.
             return "rejected-content", None
-        if len(content) > 32 * 1024:
+        max_content_bytes = 32 * 1024 if is_allowed else 4 * 1024
+        if len(content) > max_content_bytes:
             return "rejected-size", None
         deliveries = [t[1] for t in inner.tags if len(t) >= 2 and t[0] == "d"]
         if len(deliveries) > 1 or (deliveries and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", deliveries[0])):
@@ -250,14 +266,37 @@ class InboxStore:
         # retain their original content-only digest for existing inbox databases.
         digest_input = (b"a4a-conversation-v1\0" + conversation_id.encode("ascii")
                         + b"\0" + content) if conversation_id is not None else content
-        return "ready", (inner.pubkey, "d:" + delivery if delivery else "e:" + inner.id,
-                         hashlib.sha256(digest_input).hexdigest(), inner.id, outer.id,
-                         delivery, envelope, now, expires)
+        row = (inner.pubkey, "d:" + delivery if delivery else "e:" + inner.id,
+               hashlib.sha256(digest_input).hexdigest(), inner.id, outer.id,
+               delivery, envelope, now, expires)
+        if not is_allowed:
+            preview = " ".join(message["content"].split())[:200]
+            return "quarantine", (*row[:7], preview, now, expires)
+        return "ready", row
 
     def _insert(self, prepared):
         kind, row = prepared
         if row is None:
             return kind
+        if kind == "quarantine":
+            existing_q = self.db.execute(
+                "SELECT state FROM quarantine_requests WHERE sender=?",
+                (row[0],),
+            ).fetchone()
+            if existing_q is not None:
+                return "quarantine-duplicate"
+            q_count = self.db.execute(
+                "SELECT COUNT(*) FROM quarantine_requests WHERE state='pending'"
+            ).fetchone()[0]
+            if q_count >= 200:
+                return "quarantine-full"
+            self.db.execute(
+                """INSERT INTO quarantine_requests
+                (sender,dedup,digest,inner_id,outer_id,delivery_id,envelope,preview,received,expires,state)
+                VALUES (?,?,?,?,?,?,?,?,?,?,'pending')""",
+                row,
+            )
+            return "quarantined"
         existing = self.db.execute("SELECT digest FROM messages WHERE sender=? AND dedup=?", row[:2]).fetchone()
         if existing:
             if existing[0] != row[2]:
@@ -271,8 +310,11 @@ class InboxStore:
             VALUES (?,?,?,?,?,?,?,?,?)""", row)
         return "stored"
 
-    def accept(self, agent, outer, allowed_senders, *, now=None):
-        prepared = self._prepare(agent, outer, allowed_senders, _now(now))
+    def accept(self, agent, outer, allowed_senders, *, now=None, intake_mode="closed", blocked_senders=frozenset()):
+        prepared = self._prepare(
+            agent, outer, allowed_senders, _now(now),
+            intake_mode=intake_mode, blocked_senders=blocked_senders,
+        )
         with self._transaction():
             return self._insert(prepared)
 
@@ -296,7 +338,7 @@ class InboxStore:
             self.db.execute("INSERT OR IGNORE INTO cursors VALUES (?,?,?)", (relay, start_after, ""))
         return self.cursor(relay)
 
-    def accept_page(self, agent, relay, previous, rows, allowed_senders, *, now=None):
+    def accept_page(self, agent, relay, previous, rows, allowed_senders, *, now=None, intake_mode="closed", blocked_senders=frozenset()):
         if len(rows) > 500:
             raise InboxError("history page exceeds inbox batch limit")
         position = previous
@@ -305,7 +347,10 @@ class InboxStore:
             if type(stamp) is not int or stamp < 0 or (stamp, event.id) <= position:
                 raise InboxError("history page is not strictly ordered")
             position = (stamp, event.id)
-            prepared.append(self._prepare(agent, event, allowed_senders, _now(now)))
+            prepared.append(self._prepare(
+                agent, event, allowed_senders, _now(now),
+                intake_mode=intake_mode, blocked_senders=blocked_senders,
+            ))
         with self._transaction():
             if self.cursor(relay) != previous:
                 raise InboxConflict("history cursor changed concurrently")
@@ -866,3 +911,99 @@ class InboxStore:
         value = json.loads(row[0])
         value["stale"] = _now(now) - value["checked_at"] > 90
         return value
+
+    def quarantine_counts(self) -> dict[str, int]:
+        """Return counts of reception quarantine requests by state."""
+        counts = {"pending": 0, "accepted": 0, "rejected": 0, "blocked": 0}
+        for state, cnt in self.db.execute(
+            "SELECT state, COUNT(*) FROM quarantine_requests GROUP BY state"
+        ):
+            if state in counts:
+                counts[state] = int(cnt)
+        counts["total"] = sum(counts.values())
+        return counts
+
+    def quarantine_list(self, *, state: str | None = "pending", limit: int = 50) -> list[dict]:
+        """Return bounded quarantine request summaries for owner digest review."""
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise InboxError("quarantine list limit must be 1..200")
+        if state is not None and state not in ("pending", "accepted", "rejected", "blocked"):
+            raise InboxError(f"invalid quarantine state filter: {state!r}")
+        if state is None:
+            rows = self.db.execute(
+                """SELECT req_id, sender, delivery_id, inner_id, preview, received, expires, state, decided_at
+                   FROM quarantine_requests ORDER BY req_id DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = self.db.execute(
+                """SELECT req_id, sender, delivery_id, inner_id, preview, received, expires, state, decided_at
+                   FROM quarantine_requests WHERE state=? ORDER BY req_id ASC LIMIT ?""",
+                (state, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def quarantine_decide(self, req_id: int, decision: str, *, now=None) -> dict:
+        """Apply an owner decision ('accept', 'reject', or 'block') to a quarantine request."""
+        if type(req_id) is not int or req_id < 1:
+            raise InboxError("req_id must be a positive integer")
+        if decision not in ("accept", "reject", "block"):
+            raise InboxError("decision must be 'accept', 'reject', or 'block'")
+        ts = _now(now)
+        with self._transaction():
+            row = self.db.execute(
+                "SELECT * FROM quarantine_requests WHERE req_id=?",
+                (req_id,),
+            ).fetchone()
+            if row is None:
+                raise InboxError(f"no quarantine request with req_id={req_id}")
+            if row["state"] != "pending":
+                raise InboxConflict(
+                    f"quarantine request {req_id} is already {row['state']}"
+                )
+            new_state = {
+                "accept": "accepted",
+                "reject": "rejected",
+                "block": "blocked",
+            }[decision]
+            seq = None
+            if decision == "accept":
+                existing = self.db.execute(
+                    "SELECT seq FROM messages WHERE sender=? AND dedup=?",
+                    (row["sender"], row["dedup"]),
+                ).fetchone()
+                if existing is not None:
+                    seq = int(existing[0])
+                else:
+                    cur = self.db.execute(
+                        """INSERT INTO messages
+                        (sender,dedup,digest,inner_id,outer_id,delivery_id,envelope,received,expires)
+                        VALUES (?,?,?,?,?,?,?,?,?)""",
+                        (
+                            row["sender"],
+                            row["dedup"],
+                            row["digest"],
+                            row["inner_id"],
+                            row["outer_id"],
+                            row["delivery_id"],
+                            row["envelope"],
+                            row["received"],
+                            row["expires"],
+                        ),
+                    )
+                    seq = int(cur.lastrowid)
+            self.db.execute(
+                "UPDATE quarantine_requests SET state=?, decided_at=? WHERE req_id=?",
+                (new_state, ts, req_id),
+            )
+            return {
+                "req_id": req_id,
+                "sender": row["sender"],
+                "decision": decision,
+                "state": new_state,
+                "delivery_id": row["delivery_id"],
+                "inner_id": row["inner_id"],
+                "promoted_seq": seq,
+                "decided_at": ts,
+            }
+
