@@ -537,6 +537,32 @@ INBAND_ACCEPTANCE_PREFIX = "[A4A_INVITE_ACCEPTANCE_V1]"
 REVOKED_CARD_MARKER = "REVOKED"
 
 
+def build_rendezvous_delegation_event(
+    invite_id: str,
+    secret: str,
+    *,
+    created_at: int,
+    expires_at: int,
+) -> Event:
+    """Build a deterministic self-signed kind-31000 delegation for the rendezvous keypair.
+
+    Production A4A relays require an active kind-31000 delegation for the author of
+    kind-31015 events. Because `rk = derive_rendezvous_keys(invite_id, secret)` is a
+    deterministic ephemeral keypair, it self-delegates authority for the lifetime of
+    the invitation without exposing `inviter_pubkey` or `responder_pubkey`.
+    """
+    from .delegation import create_delegation
+
+    rk = derive_rendezvous_keys(invite_id, secret)
+    return create_delegation(
+        rk,
+        rk.pubkey_hex,
+        "a4a-invite-rendezvous",
+        int(expires_at),
+        created_at=int(created_at),
+    )
+
+
 def build_rendezvous_card_event(
     card: InvitationCard,
     secret: str,
@@ -548,11 +574,18 @@ def build_rendezvous_card_event(
     Returns `(signed_event, card_ciphertext)`.
     """
     rk = derive_rendezvous_keys(card.invite_id, secret)
+    deleg = build_rendezvous_delegation_event(
+        card.invite_id,
+        secret,
+        created_at=int(card.created_at),
+        expires_at=int(card.expires_at),
+    )
     ciphertext = encrypt_invitation_card(card, secret)
     tags = [
         ["p", rk.pubkey_hex],
         ["d", f"card:{card.invite_id}"],
         ["expiration", str(int(card.expires_at))],
+        ["delegation", deleg.id],
     ]
     ev = Event(
         kind=KIND_PRIVATE_MESSAGE,
@@ -569,15 +602,24 @@ def build_rendezvous_revoke_event(
     *,
     expires_at: int | None = None,
     now: int | None = None,
+    created_at: int | None = None,
 ) -> Event:
     """Build a NIP-33 replacement event that overwrites the encrypted card with REVOKED."""
     rk = derive_rendezvous_keys(invite_id, secret)
     ts = (int(time.time()) if now is None else int(now)) + 1
     exp = int(expires_at) if expires_at is not None else ts + 3600
+    deleg_created = int(created_at) if created_at is not None else ts
+    deleg = build_rendezvous_delegation_event(
+        invite_id,
+        secret,
+        created_at=deleg_created,
+        expires_at=exp,
+    )
     tags = [
         ["p", rk.pubkey_hex],
         ["d", f"card:{invite_id}"],
         ["expiration", str(exp)],
+        ["delegation", deleg.id],
     ]
     return Event(
         kind=KIND_PRIVATE_MESSAGE,
@@ -593,15 +635,24 @@ def build_rendezvous_acceptance_event(
     secret: str,
     *,
     expires_at: int | None = None,
+    created_at: int | None = None,
 ) -> tuple[Event, str]:
     """Build and sign the blind relay rendezvous event holding `sealed_acceptance`."""
     rk = derive_rendezvous_keys(acceptance.invite_id, secret)
     sealed = encrypt_invitation_acceptance(acceptance, ephemeral_pubkey)
     exp = int(expires_at) if expires_at is not None else int(acceptance.responded_at) + DEFAULT_INVITE_TTL_SECONDS
+    deleg_created = int(created_at) if created_at is not None else int(acceptance.responded_at)
+    deleg = build_rendezvous_delegation_event(
+        acceptance.invite_id,
+        secret,
+        created_at=deleg_created,
+        expires_at=exp,
+    )
     tags = [
         ["p", rk.pubkey_hex],
         ["d", f"accept:{acceptance.invite_id}"],
         ["expiration", str(exp)],
+        ["delegation", deleg.id],
     ]
     ev = Event(
         kind=KIND_PRIVATE_MESSAGE,

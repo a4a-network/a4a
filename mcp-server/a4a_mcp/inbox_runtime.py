@@ -1676,6 +1676,7 @@ async def create_invitation(
         InvitationError,
         build_invitation_url,
         build_rendezvous_card_event,
+        build_rendezvous_delegation_event,
         generate_invite_secret,
     )
     with open_runtime() as (policy, agent, _):
@@ -1690,12 +1691,19 @@ async def create_invitation(
                 now=now,
             )
             url = build_invitation_url(card.invite_id, secret, base_url=base_url)
+            deleg_event = build_rendezvous_delegation_event(
+                card.invite_id,
+                secret,
+                created_at=card.created_at,
+                expires_at=card.expires_at,
+            )
             card_event, _ = build_rendezvous_card_event(card, secret)
         except InvitationError as exc:
             raise InboxError(str(exc)) from exc
 
         await agent.relay.connect()
         try:
+            await agent._broadcast(deleg_event)
             await agent._broadcast(card_event)
         finally:
             await agent.relay.aclose()
@@ -1732,7 +1740,11 @@ async def create_invitation(
 
 async def revoke_invitation(invite_id: str) -> dict:
     """Revoke an open one-time invitation locally and overwrite its card on relays."""
-    from a4a.invitations import build_rendezvous_revoke_event, is_valid_invite_token
+    from a4a.invitations import (
+        build_rendezvous_delegation_event,
+        build_rendezvous_revoke_event,
+        is_valid_invite_token,
+    )
     if not is_valid_invite_token(invite_id):
         raise InboxError("invalid invite_id")
     with open_runtime() as (policy, agent, _):
@@ -1743,14 +1755,22 @@ async def revoke_invitation(invite_id: str) -> dict:
         if rec.get("status") == "connected":
             raise InboxError("cannot revoke an invitation that has already been accepted")
         now = int(time.time())
+        deleg_event = build_rendezvous_delegation_event(
+            invite_id,
+            rec["secret"],
+            created_at=rec["created_at"],
+            expires_at=rec["expires_at"],
+        )
         revoke_ev = build_rendezvous_revoke_event(
             invite_id,
             rec["secret"],
             expires_at=rec["expires_at"],
-            now=now,
+            now=max(now, int(rec["created_at"])),
+            created_at=rec["created_at"],
         )
         await agent.relay.connect()
         try:
+            await agent._broadcast(deleg_event)
             await agent._broadcast(revoke_ev)
         except RelayError:
             log.warning("could not broadcast invitation revocation to relay; local revocation still applied")
@@ -1950,6 +1970,7 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
         InvitationError,
         REVOKED_CARD_MARKER,
         build_rendezvous_acceptance_event,
+        build_rendezvous_delegation_event,
         decrypt_invitation_card,
         derive_rendezvous_keys,
         format_inband_acceptance_message,
@@ -2011,11 +2032,18 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
                     intro=intro,
                     now=now,
                 )
+                deleg_event = build_rendezvous_delegation_event(
+                    invite_id,
+                    secret,
+                    created_at=card.created_at,
+                    expires_at=card.expires_at,
+                )
                 accept_ev, _ = build_rendezvous_acceptance_event(
                     acceptance,
                     card.ephemeral_pubkey,
                     secret,
                     expires_at=card.expires_at,
+                    created_at=card.created_at,
                 )
             except InvitationError as exc:
                 raise InboxError(str(exc)) from exc
@@ -2039,6 +2067,7 @@ async def accept_invitation(url: str, *, intro: str = "") -> dict:
             data["allowed_peers"] = sorted(peers)
             _write_policy_data(data, replace=True)
 
+            await agent._broadcast(deleg_event)
             await agent._broadcast(accept_ev)
             try:
                 await agent.send_connection_request(
