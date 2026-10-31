@@ -225,7 +225,7 @@ class InboxStore:
                for tag in inner.tags):
             return "ignored", None
         is_allowed = inner.pubkey in allowed
-        if not is_allowed and (inner.pubkey in blocked_senders or intake_mode != "reception"):
+        if not is_allowed and inner.pubkey in blocked_senders:
             return "blocked", None
         inner_expiry = [t[1] for t in inner.tags if len(t) >= 2 and t[0] == "expiration"]
         if len(inner_expiry) > 1 or (inner_expiry and not re.fullmatch(r"[0-9]{1,12}", inner_expiry[0])):
@@ -244,7 +244,7 @@ class InboxStore:
             return "rejected-content", None
         max_content_bytes = 32 * 1024 if is_allowed else 4 * 1024
         if len(content) > max_content_bytes:
-            return "rejected-size", None
+            return ("rejected-size", None) if (is_allowed or intake_mode == "reception") else ("blocked", None)
         deliveries = [t[1] for t in inner.tags if len(t) >= 2 and t[0] == "d"]
         if len(deliveries) > 1 or (deliveries and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", deliveries[0])):
             return "ignored", None
@@ -271,32 +271,35 @@ class InboxStore:
                delivery, envelope, now, expires)
         if not is_allowed:
             preview = " ".join(message["content"].split())[:200]
-            return "quarantine", (*row[:7], preview, now, expires)
+            q_row = (*row[:7], preview, now, expires)
+            if intake_mode == "reception":
+                return "quarantine", q_row
+            return "blocked-quarantine", q_row
         return "ready", row
 
     def _insert(self, prepared):
         kind, row = prepared
         if row is None:
             return kind
-        if kind == "quarantine":
+        if kind in ("quarantine", "blocked-quarantine"):
             existing_q = self.db.execute(
                 "SELECT state FROM quarantine_requests WHERE sender=?",
                 (row[0],),
             ).fetchone()
             if existing_q is not None:
-                return "quarantine-duplicate"
+                return "blocked" if kind == "blocked-quarantine" else "quarantine-duplicate"
             q_count = self.db.execute(
                 "SELECT COUNT(*) FROM quarantine_requests WHERE state='pending'"
             ).fetchone()[0]
             if q_count >= 200:
-                return "quarantine-full"
+                return "blocked" if kind == "blocked-quarantine" else "quarantine-full"
             self.db.execute(
                 """INSERT INTO quarantine_requests
                 (sender,dedup,digest,inner_id,outer_id,delivery_id,envelope,preview,received,expires,state)
                 VALUES (?,?,?,?,?,?,?,?,?,?,'pending')""",
                 row,
             )
-            return "quarantined"
+            return "blocked" if kind == "blocked-quarantine" else "quarantined"
         existing = self.db.execute("SELECT digest FROM messages WHERE sender=? AND dedup=?", row[:2]).fetchone()
         if existing:
             if existing[0] != row[2]:
@@ -1006,4 +1009,16 @@ class InboxStore:
                 "promoted_seq": seq,
                 "decided_at": ts,
             }
+
+    def promote_quarantine_for_sender(self, sender: str, *, now=None) -> list[dict]:
+        """Promote any pending quarantine request(s) from `sender` into `messages`."""
+        rows = self.db.execute(
+            "SELECT req_id FROM quarantine_requests WHERE sender=? AND state='pending' ORDER BY req_id ASC",
+            (sender,),
+        ).fetchall()
+        promoted = []
+        for r in rows:
+            promoted.append(self.quarantine_decide(int(r["req_id"]), "accept", now=now))
+        return promoted
+
 

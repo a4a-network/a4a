@@ -389,3 +389,47 @@ def test_official_relay_pool_interoperability_and_contact_labels(tmp_path, monke
     assert info2["level"] == 2
     assert info2["label"] == "Ilya Kuzmin (Targetologist)"
 
+
+async def test_closed_mode_retains_first_contact_in_quarantine_and_promotes_on_trust(tmp_path, monkeypatch):
+    async with FakeRelay() as relay:
+        monkeypatch.setenv("A4A_RELAY", relay.url)
+        monkeypatch.setenv("A4A_MANDATE_AUTO", "0")
+
+        home = tmp_path / "closed_agent"
+        _switch_home(monkeypatch, home)
+        keys = identity.load_or_create_identity()
+        inbox_runtime.configure("closed-session", [], start_after=0)
+
+        async with Agent([relay.url], keys=Keys()) as guest:
+            await guest.send_private_message(
+                keys.pubkey_hex,
+                "Hello! I opened your static contact card and want to connect.",
+                wrap=True,
+            )
+
+        with inbox_runtime.open_runtime() as (policy, agent, store):
+            receiver = InboxReceiver(
+                agent,
+                store,
+                lambda: inbox_runtime.refresh_policy(policy).allowed_peers,
+                start_after=0,
+                history=_FakeInboxHistory(relay, keys.pubkey_hex),
+                intake_mode=lambda: inbox_runtime.refresh_policy(policy).intake_mode,
+                blocked_senders=lambda: inbox_runtime.refresh_policy(policy).blocked_senders,
+            )
+            await receiver.sync_once()
+
+        # In default closed mode, main inbox pending is 0, but the guest's first letter is held in quarantine
+        idle_claim = inbox_runtime.claim()
+        assert idle_claim["message"] is None
+        assert idle_claim["quarantine_pending"] == 1
+        assert "quarantine-decide" in idle_claim["quarantine_hint"]
+
+        # Admitting the guest via set_peer_trust (or allow-peer / quarantine-decide) automatically promotes the letter
+        inbox_runtime.set_peer_trust(guest.pubkey, level=1, label="New Colleague")
+        claimed = inbox_runtime.claim()
+        assert claimed["state"] == "processing"
+        assert claimed["message"]["from_pubkey"] == guest.pubkey
+        assert claimed["message"]["peer_label"] == "New Colleague"
+
+

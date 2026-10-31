@@ -171,14 +171,16 @@ Step D — Fetch and read incoming messages & new contact requests:
   # 4. Reply to letter #1 with cryptographic thread binding:
   <VENV_PYTHON> -I -m a4a_mcp reply --seq 1 --text "Got your reply!"
 
-  # 5. Check if any NEW unapproved peers have sent you a first-contact message:
-  <VENV_PYTHON> -I -m a4a_mcp inbox-requests
-  # If `inbox-requests` shows a message from a new `sender_apub`, show the sender's
-  # `apub1...` and preview to your human user and ask if they want to add that contact.
-  # Once the user approves, run:
-  <VENV_PYTHON> -I -m a4a_mcp allow-peer <SENDER_APUB>
-  # (`allow-peer` adds the address to `allowed_peers`, imports their waiting letter into
-  # your inbox, and sends a signed receipt ACK.)
+  # 5. Check if any NEW unapproved peers have sent you a first-contact message (Quarantine):
+  <VENV_PYTHON> -I -m a4a_mcp quarantine-list
+  # Any first-contact message from an unrecognized sender is held in local quarantine
+  # (`quarantine_requests`, Trust Level L0) instead of disappearing. Show the sender's
+  # `sender_apub` and `preview` to your human user and ask for their decision:
+  # - Admit & move the letter into the main inbox at L1 in one step:
+  <VENV_PYTHON> -I -m a4a_mcp quarantine-decide --req-id <REQ_ID> --decision accept --label "Colleague Name (Role)"
+  # - Or block the sender:
+  <VENV_PYTHON> -I -m a4a_mcp quarantine-decide --req-id <REQ_ID> --decision block
+  # (You can also scan relay history directly with `<VENV_PYTHON> -I -m a4a_mcp inbox-requests`.)
 
 Step E — Start Automatic Inbox Monitoring for the Current Session:
   If your agent environment supports background tasks or session timers, immediately

@@ -570,7 +570,11 @@ def set_peer_trust(pubkey: str, *, level: int | None = None, origin: str | None 
         peer_notes=new_notes,
     )
     data["allowed_peers"] = sorted(peers)
-    return _write_policy_data(data, replace=True)
+    updated_policy = _write_policy_data(data, replace=True)
+    with contextlib.suppress(Exception):
+        with _open_store(updated_policy) as store:
+            store.promote_quarantine_for_sender(norm)
+    return updated_policy
 
 
 def grant_send_permit(to_pubkey: str, *, text: str | None = None,
@@ -1403,10 +1407,12 @@ def refresh_policy(previous):
 
 
 def _with_unknown_notice(result, store):
-    """Tell the caller about letters stranded in `unknown` by an expired lease.
+    """Tell the caller about letters stranded in `unknown` by an expired lease or waiting in `quarantine`.
 
     26.09.2026: a project mailbox's lease expired; the letter went to unknown and inbox-next never
     mentioned it again, so it looked lost although reconciliation returns it whole.
+    31.10.2026: first-contact letters from unrecognized senders are held in quarantine_requests
+    instead of disappearing; surface quarantine_pending so the agent can ask the owner.
     """
     waiting = int(store.status().get("unknown", 0))
     if waiting:
@@ -1414,6 +1420,15 @@ def _with_unknown_notice(result, store):
         result["hint"] = (f"{waiting} letter(s) wait in unknown after an expired lease: list them "
                           "with inbox-unknown, return one with inbox-reconcile --resolution retry, "
                           "or close it with --resolution processed if it was already handled.")
+    q_pending = int(store.quarantine_counts().get("pending", 0))
+    if q_pending:
+        result["quarantine_pending"] = q_pending
+        result["quarantine_hint"] = (
+            f"{q_pending} contact request(s) from unrecognized sender(s) wait in quarantine: "
+            "inspect with quarantine-list, show the sender apub and preview to the owner, and "
+            "admit in one step with quarantine-decide --req-id <id> --decision accept "
+            "--label \"Name (Role)\" (or reject/block)."
+        )
     return result
 
 
@@ -2370,32 +2385,47 @@ def quarantine_digest(*, state: str | None = "pending", limit: int = 50) -> dict
         }
 
 
-def quarantine_decide(req_id: int, decision: str) -> dict:
+def quarantine_decide(req_id: int, decision: str, *, label: str | None = None) -> dict:
     """Owner action: 'accept' (promote to L1 and move to inbox), 'reject', or 'block'."""
     from a4a.keys import Keys
+    clean_label = str(label).strip() if label else ""
+    if len(clean_label) > 160:
+        raise InboxError("peer_trust label must be a string up to 160 characters")
     with open_runtime() as (policy, _, store):
         res = store.quarantine_decide(int(req_id), decision)
         sender = res["sender"]
+        sender_apub = Keys.encode_apub(sender)
         if decision == "accept":
             peers = set(policy.allowed_peers) | {sender}
             blocked = set(policy.blocked_senders) - {sender}
             new_trust = dict(policy.peer_trust or {})
-            if sender not in new_trust:
-                new_trust[sender] = {
-                    "level": 1,
-                    "origin": "external_contact",
-                    "topics": [],
-                    "remote_trust_attested": False,
-                }
+            entry = dict(new_trust.get(sender) or {
+                "level": 1,
+                "origin": "external_contact",
+                "topics": [],
+                "remote_trust_attested": False,
+            })
+            if clean_label:
+                entry["label"] = clean_label
+            new_trust[sender] = entry
+            new_notes = dict(policy.peer_notes or {})
+            if clean_label:
+                new_notes[sender] = clean_label
             data = _policy_to_json_data(
                 policy,
                 peer_trust=new_trust,
                 blocked_senders=frozenset(blocked),
+                peer_notes=new_notes,
             )
             data["allowed_peers"] = sorted(peers)
             _write_policy_data(data, replace=True)
-            res["trust_level"] = 1
-            res["origin_label"] = "external_contact"
+            res["trust_level"] = int(entry["level"])
+            res["origin_label"] = str(entry["origin"])
+            if clean_label:
+                res["peer_label"] = clean_label
+            res["owner_contact_onboarding_prompt"] = _owner_contact_onboarding_prompt(
+                sender_apub, peer_label=clean_label
+            )
         elif decision == "block":
             peers = set(policy.allowed_peers) - {sender}
             blocked = set(policy.blocked_senders) | {sender}
@@ -2405,6 +2435,6 @@ def quarantine_decide(req_id: int, decision: str) -> dict:
             )
             data["allowed_peers"] = sorted(peers)
             _write_policy_data(data, replace=True)
-        res["sender_apub"] = Keys.encode_apub(sender)
+        res["sender_apub"] = sender_apub
         return res
 

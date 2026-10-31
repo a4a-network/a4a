@@ -484,6 +484,8 @@ def _inbox_admin(argv):
         description="Apply owner decision to a quarantined inquiry: accept (promote to L1), reject, or block.")
     q_decide.add_argument("--req-id", type=int, required=True)
     q_decide.add_argument("--decision", required=True, choices=("accept", "reject", "block"))
+    q_decide.add_argument("--label", default=None,
+                          help="Optional human-readable contact label when decision=accept (up to 160 chars)")
     args = parser.parse_args(argv)
     if sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
         sys.stdout.reconfigure(encoding="utf-8")
@@ -621,7 +623,7 @@ def _inbox_admin(argv):
             state_filter = None if args.state == "all" else args.state
             emit(inbox_runtime.quarantine_digest(state=state_filter, limit=args.limit))
         elif args.command == "quarantine-decide":
-            emit(inbox_runtime.quarantine_decide(args.req_id, args.decision))
+            emit(inbox_runtime.quarantine_decide(args.req_id, args.decision, label=args.label))
         elif args.command == "deliver":
             from . import server
             text = (pathlib.Path(args.text_file).read_text(encoding="utf-8")
@@ -952,6 +954,12 @@ def _onboarding_cli(argv: list[str]) -> None:
             consumer, sorted(merged_peers),
             start_after=start_after, replace=True,
             ack_on_receipt=ack_on_receipt, allowed_owners=owners,
+            peer_trust=existing.peer_trust if existing else None,
+            owner_send_permits=existing.owner_send_permits if existing else (),
+            intake_mode=existing.intake_mode if existing else "closed",
+            blocked_senders=existing.blocked_senders if existing else (),
+            invitations=existing.invitations if existing else None,
+            peer_notes=existing.peer_notes if existing else None,
         )
         if args.trust_level is not None or args.label is not None:
             for norm in sorted(added_hex):
@@ -967,6 +975,10 @@ def _onboarding_cli(argv: list[str]) -> None:
         async def _import_waiting():
             imported = 0
             with inbox_runtime.open_runtime() as (pol, agent, store):
+                for norm in sorted(added_hex):
+                    with contextlib.suppress(Exception):
+                        promoted = store.promote_quarantine_for_sender(norm)
+                        imported += len(promoted)
                 await agent.relay.connect()
                 try:
                     outers = await agent.relay.query({
