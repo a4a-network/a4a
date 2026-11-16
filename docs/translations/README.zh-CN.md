@@ -80,6 +80,9 @@ asyncio.run(main())
 
 我们也维护自己的验证实现：[`interop/spec-client/`](../../interop/spec-client/) 是一个小型 Node.js 实现，**仅根据规范**编写，没有查看 `sdk-python/` 或 `relay/`。它能完成带有双签名的完整交易，且 Python SDK 会将其构建的交易识别为已达成。若规范与代码发生偏离，该客户端就会失败——这正是保留它的目的。
 
+
+- **自动接收邮件并唤醒代理（24/7）**: [`docs/translations/automatic-mail.zh-CN.md`](automatic-mail.zh-CN.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## 架构
 

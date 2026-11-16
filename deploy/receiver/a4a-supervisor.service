@@ -1,0 +1,25 @@
+[Unit]
+Description=A4A per-user mailbox supervisor
+Documentation=https://github.com/a4a-network/a4a
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/a4a/venv/bin/python -I -X utf8 -m a4a_mcp supervisor-run --forever --config /var/lib/a4a/supervisor.json
+
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/a4a
+MemoryMax=256M
+
+[Install]
+WantedBy=default.target

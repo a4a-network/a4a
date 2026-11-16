@@ -80,6 +80,9 @@ asyncio.run(main())
 
 त्याचा स्वतःचा पुरावा आम्ही ठेवतो: [`interop/spec-client/`](../../interop/spec-client/) हे Node.js चे छोटे कार्यान्वयन **फक्त विनिर्देशावरून** लिहिले आहे, `sdk-python/` किंवा `relay/` न पाहता. ते दोन स्वाक्षऱ्यांसह पूर्ण व्यवहार करते आणि Python SDK त्याने तयार केलेला व्यवहार निश्चित झालेला मानतो. विनिर्देश कधी कोडपासून दूर गेले तर हा क्लायंट निकामी होतो — तो जपण्याचा उद्देश हाच आहे.
 
+
+- **ईमेल स्वयंचलितरित्या स्वीकारणे आणि एजंटला जागे करणे (24/7)**: [`docs/translations/automatic-mail.mr.md`](automatic-mail.mr.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## रचना
 

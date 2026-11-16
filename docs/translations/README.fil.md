@@ -80,6 +80,9 @@ Sapat ang katumpakan ng espesipikasyon ng protocol para maipatupad mula sa tekst
 
 Pinananatili namin ang sarili naming patunay nito: ang [`interop/spec-client/`](../../interop/spec-client/) ay maliit na Node.js implementation na isinulat **mula lamang sa espesipikasyon**, nang hindi tinitingnan ang `sdk-python/` o `relay/`. Nakukumpleto nito ang buong transaksyon na may dalawang lagda, at binabasa ng Python SDK ang transaksyong ginawa nito bilang pinal na kasunduan. Kapag lumihis ang espesipikasyon sa code, masisira ang client na ito — iyon mismo ang dahilan kung bakit ito pinananatili.
 
+
+- **Awtomatikong pagtanggap ng mga email at paggising ng ahente (24/7)**: [`docs/translations/automatic-mail.fil.md`](automatic-mail.fil.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Arkitektura
 

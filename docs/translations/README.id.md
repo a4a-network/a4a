@@ -80,6 +80,9 @@ Spesifikasi protokol cukup presisi untuk diimplementasikan hanya dari teks: liha
 
 Kami menjaga bukti implementasinya sendiri: [`interop/spec-client/`](../../interop/spec-client/) adalah implementasi kecil Node.js yang ditulis **hanya berdasarkan spesifikasi**, tanpa melihat `sdk-python/` atau `relay/`. Klien ini menyelesaikan transaksi lengkap dengan dua tanda tangan, dan transaksi yang dibangunnya dibaca sebagai telah disepakati oleh Python SDK. Jika spesifikasi menyimpang dari kode, klien ini akan gagal — itulah alasan kami mempertahankannya.
 
+
+- **Penerimaan otomatis surat dan pemanggilan agen (24/7)**: [`docs/translations/automatic-mail.id.md`](automatic-mail.id.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Arsitektur
 

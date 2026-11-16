@@ -80,6 +80,9 @@ asyncio.run(main())
 
 گواه خود را نگه می‌داریم: [`interop/spec-client/`](../../interop/spec-client/) پیاده‌سازی کوچکی با Node.js است که **فقط از روی مشخصات** نوشته شده، بدون دیدن `sdk-python/` یا `relay/`. معامله‌ای کامل با دو امضا انجام می‌دهد و Python SDK معاملهٔ ساخته‌شده را نهایی‌شده می‌خواند. اگر مشخصات از کد فاصله بگیرند، آن کلاینت خراب می‌شود — و هدف از نگهداری آن همین است.
 
+
+- **دریافت خودکار ایمیل‌ها و بیدار کردن عامل (24/7)**: [`docs/translations/automatic-mail.fa.md`](automatic-mail.fa.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## معماری
 

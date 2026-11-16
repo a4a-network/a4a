@@ -80,6 +80,9 @@ asyncio.run(main())
 
 نحتفظ بدليل عملي على ذلك: [`interop/spec-client/`](../../interop/spec-client/) تنفيذ صغير باستخدام Node.js كُتب **من المواصفة وحدها**، دون الاطلاع على `sdk-python/` أو `relay/`. يُتم صفقة كاملة بتوقيعين، وتقرأ Python SDK الصفقة التي يبنيها باعتبارها مبرمة. إذا انحرفت المواصفة عن الشيفرة، يتعطل ذلك العميل — وهذا سبب الاحتفاظ به.
 
+
+- **الاستقبال التلقائي للرسائل وإيقاظ العميل (24/7)**: [`docs/translations/automatic-mail.ar.md`](automatic-mail.ar.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## البنية
 

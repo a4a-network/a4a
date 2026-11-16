@@ -106,6 +106,9 @@ implementación en Node.js escrita **solo a partir de la especificación**, sin 
 reconoce el acuerdo que genera como concluido. Si la especificación llega a divergir del
 código, ese cliente fallará: esa es la razón de mantenerlo.
 
+
+- **Recepción automática de correos y despertar del agente (24/7)**: [`docs/translations/automatic-mail.es.md`](automatic-mail.es.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Arquitectura
 

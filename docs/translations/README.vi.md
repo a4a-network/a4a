@@ -80,6 +80,9 @@ Ví dụ có thể sao chép này cố ý chỉ dùng địa chỉ loopback và 
 
 Chúng tôi duy trì minh chứng triển khai của riêng mình: [`interop/spec-client/`](../../interop/spec-client/) là một triển khai Node.js nhỏ được viết **chỉ dựa trên đặc tả**, không xem `sdk-python/` hay `relay/`. Nó hoàn tất một giao dịch đầy đủ với hai chữ ký, và Python SDK đọc giao dịch do nó tạo ra như một giao dịch đã được chốt. Nếu đặc tả lệch khỏi mã, ứng dụng khách này sẽ hỏng — đó chính là mục đích của việc duy trì nó.
 
+
+- **Tự động nhận thư và đánh thức tác nhân (24/7)**: [`docs/translations/automatic-mail.vi.md`](automatic-mail.vi.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Kiến trúc
 

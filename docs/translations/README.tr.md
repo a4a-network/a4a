@@ -107,6 +107,9 @@ Node.js uygulamasıdır. İki imzalı tam bir anlaşmayı tamamlar ve oluşturdu
 Python SDK tarafından sonuçlandırılmış olarak okunur. Belirtim bir gün koddan
 saparsa bu istemci çalışmaz; onu tutmamızın amacı budur.
 
+
+- **Otomatik e-posta alımı ve agent uyanması (24/7)**: [`docs/translations/automatic-mail.tr.md`](automatic-mail.tr.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Mimari
 

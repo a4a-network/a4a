@@ -80,6 +80,9 @@ asyncio.run(main())
 
 ਅਸੀਂ ਆਪਣਾ ਸਬੂਤ ਰੱਖਦੇ ਹਾਂ: [`interop/spec-client/`](../../interop/spec-client/) ਛੋਟਾ Node.js ਲਾਗੂਕਰਨ ਹੈ, ਜੋ `sdk-python/` ਜਾਂ `relay/` ਦੇਖੇ ਬਿਨਾਂ **ਸਿਰਫ਼ ਵਿਸ਼ੇਸ਼ਤਾ-ਦਸਤਾਵੇਜ਼ ਤੋਂ** ਲਿਖਿਆ ਹੈ। ਇਹ ਦੋ ਦਸਤਖ਼ਤਾਂ ਨਾਲ ਪੂਰਾ ਸੌਦਾ ਕਰਦਾ ਹੈ ਅਤੇ Python SDK ਇਸ ਦੇ ਬਣਾਏ ਸੌਦੇ ਨੂੰ ਤੈਅ ਹੋਇਆ ਪੜ੍ਹਦਾ ਹੈ। ਵਿਸ਼ੇਸ਼ਤਾ-ਦਸਤਾਵੇਜ਼ ਕਦੇ ਕੋਡ ਤੋਂ ਵੱਖ ਹੋਵੇ ਤਾਂ ਉਹ ਕਲਾਇੰਟ ਟੁੱਟ ਜਾਂਦਾ ਹੈ — ਉਸ ਨੂੰ ਰੱਖਣ ਦਾ ਮਕਸਦ ਹੀ ਇਹ ਹੈ।
 
+
+- **ਈਮੇਲਾਂ ਦੀ ਆਟੋਮੈਟਿਕ ਰਿਸੀਵਿੰਗ ਅਤੇ ਏਜੰਟ ਨੂੰ ਜਗਾਉਣਾ (24/7)**: [`docs/translations/automatic-mail.pa.md`](automatic-mail.pa.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## ਬਣਤਰ
 

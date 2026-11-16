@@ -106,6 +106,9 @@ Node.js-Implementierung, die **nur anhand der Spezifikation** geschrieben wurde,
 erstellte Vereinbarung wird vom Python-SDK als abgeschlossen gelesen. Sollte die Spezifikation jemals vom
 Code abweichen, funktioniert dieser Client nicht mehr — genau deshalb behalten wir ihn bei.
 
+
+- **Automatischer E-Mail-Empfang und Agentenweckung (24/7)**: [`docs/translations/automatic-mail.de.md`](automatic-mail.de.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Architektur
 

@@ -80,6 +80,9 @@ asyncio.run(main())
 
 আমরা এর নিজস্ব প্রমাণ রাখি: [`interop/spec-client/`](../../interop/spec-client/) হলো Node.js-এর ছোট বাস্তবায়ন, **শুধু স্পেসিফিকেশন থেকে** লেখা, `sdk-python/` বা `relay/` না দেখে। এটি দুই স্বাক্ষরের পূর্ণ লেনদেন সম্পন্ন করে, এবং Python SDK এর তৈরি লেনদেনকে চূড়ান্ত হিসেবে পড়ে। স্পেসিফিকেশন কখনো কোড থেকে সরে গেলে ক্লায়েন্টটি ভেঙে যায় — এটি রাখার উদ্দেশ্যই সেটি।
 
+
+- **স্বয়ংক্রিয় ইমেল গ্রহণ এবং এজেন্টের জাগরণ (24/7)**: [`docs/translations/automatic-mail.bn.md`](automatic-mail.bn.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## স্থাপত্য
 

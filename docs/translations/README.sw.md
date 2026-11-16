@@ -80,6 +80,9 @@ Itifaki imebainishwa kwa usahihi wa kutosha kutekelezwa kutoka maandishi pekee: 
 
 Tunahifadhi uthibitisho wetu: [`interop/spec-client/`](../../interop/spec-client/) ni utekelezaji mdogo wa Node.js ulioandikwa **kutoka kwenye vipimo pekee**, bila kuangalia `sdk-python/` au `relay/`. Hukamilisha makubaliano kamili yenye saini mbili, na Python SDK hutambua makubaliano hayo kuwa yamehitimishwa. Vipimo vikianza kutofautiana na msimbo, mteja huyo huvunjika — ndiyo sababu ya kumhifadhi.
 
+
+- **Ukaribishaji wa barua pepe kiotomatiki na uamsho wa wakala (24/7)**: [`docs/translations/automatic-mail.sw.md`](automatic-mail.sw.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Usanifu
 

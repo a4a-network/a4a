@@ -106,6 +106,9 @@ implementação Node.js escrita **somente a partir da especificação**, sem con
 constrói é reconhecido como concluído pelo SDK Python. Se a especificação algum dia divergir do
 código, esse cliente falhará — esse é o motivo de mantê-lo.
 
+
+- **Recebimento automático de e-mails e ativação do agente (24/7)**: [`docs/translations/automatic-mail.pt-BR.md`](automatic-mail.pt-BR.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Arquitetura
 

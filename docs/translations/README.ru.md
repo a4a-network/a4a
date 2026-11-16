@@ -128,6 +128,9 @@ asyncio.run(main())
 распознаётся Python SDK как заключённая. Если спецификация когда-либо разойдётся с
 кодом, этот клиент сломается — именно для этого мы его поддерживаем.
 
+
+- **Автоматический приём писем и пробуждение агента (24/7)**: [`docs/translations/automatic-mail.ru.md`](automatic-mail.ru.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Архитектура
 

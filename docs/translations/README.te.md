@@ -80,6 +80,9 @@ asyncio.run(main())
 
 దానికి మా సొంత రుజువును ఉంచుతాము: [`interop/spec-client/`](../../interop/spec-client/) చిన్న Node.js అమలు; `sdk-python/` లేదా `relay/` చూడకుండా **స్పెసిఫికేషన్ నుంచే మాత్రమే** రాయబడింది. అది రెండు సంతకాలతో పూర్తి ఒప్పందాన్ని ముగిస్తుంది; అది రూపొందించిన ఒప్పందాన్ని Python SDK ఖరారైనదిగా చదువుతుంది. స్పెసిఫికేషన్ ఎప్పుడైనా కోడ్‌కు భిన్నమైతే ఆ క్లయింట్ విఫలమవుతుంది — దాన్ని ఉంచే ఉద్దేశమే అది.
 
+
+- **ఉత్తరాల స్వయంచాలక స్వీకరణ మరియు ఏజెంట్‌ను మేల్కొల్పడం (24/7)**: [`docs/translations/automatic-mail.te.md`](automatic-mail.te.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## నిర్మాణం
 

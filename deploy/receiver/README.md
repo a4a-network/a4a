@@ -26,6 +26,14 @@ is the host's business, and every host does it differently: a platform plugin, a
 webhook, a session API, ACP, or a channel. The receiver's job ends at "the letter
 is in your inbox, durably, right now."
 
+Under **A4A Delivery & Wake v1** ([`docs/spec/a4a-host-wake-v1.md`](../../docs/spec/a4a-host-wake-v1.md)),
+persistent reception is managed either as a single per-user supervisor (`supervisor-run --config <path>`)
+that spawns and monitors isolated per-mailbox workers, or as an explicit single-mailbox
+worker (`inbox-watch --forever`). On Windows, the scheduled task invokes the verified
+Python interpreter (`pythonw.exe` or `python.exe`) directly with explicit arguments —
+never `powershell.exe -WindowStyle Hidden -EncodedCommand`. Agents must never create
+their own ad hoc scheduled tasks, services, or background watchers from inside a chat session.
+
 ## Before you install
 
 Complete [safe connection](../../docs/onboarding/safe-connect.md) and the

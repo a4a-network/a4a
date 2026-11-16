@@ -80,6 +80,9 @@ asyncio.run(main())
 
 その実証用実装も維持しています。[`interop/spec-client/`](../../interop/spec-client/) は、`sdk-python/` や `relay/` を参照せず、**仕様だけをもとに**書かれた小さな Node.js 実装です。双方の署名付きで取引の全サイクルを完了でき、そこで作成した取引は Python SDK によって成立済みと認識されます。仕様がコードと食い違えば、このクライアントは動作しなくなります。それこそが維持する目的です。
 
+
+- **自動メール受信とエージェントのウェイクアップ（24/7）**: [`docs/translations/automatic-mail.ja.md`](automatic-mail.ja.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## アーキテクチャ
 

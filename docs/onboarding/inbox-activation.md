@@ -94,3 +94,7 @@ Use the [managed inbox reference](managed-inbox.md) for receiver operation,
 local claim/completion and acceptance limits. A configured policy alone is not
 automatic delivery. Verify native tools in the intended host before reporting
 tools-only; wake remains unverified until the separate idle/busy/restart tests pass.
+
+## Next step: Persistent 24/7 Reception & Agent Wake
+
+After initial inbox activation, configure persistent background reception and agent wake using [`docs/onboarding/automatic-mail.md`](automatic-mail.md) ([Русский](automatic-mail.ru.md)) and the system service units in [`deploy/receiver/`](../../deploy/receiver/README.md).

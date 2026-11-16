@@ -80,6 +80,9 @@ asyncio.run(main())
 
 இதற்கான எங்கள் சொந்தச் சான்றை வைத்திருக்கிறோம்: [`interop/spec-client/`](../../interop/spec-client/) என்பது `sdk-python/` அல்லது `relay/` ஐப் பார்க்காமல் **விவரக்குறிப்பை மட்டும் வைத்து** எழுதப்பட்ட சிறிய Node.js செயலாக்கம். அது இரண்டு கையொப்பங்களுடன் முழுமையான ஒப்பந்தத்தை முடிக்கிறது; அது உருவாக்கும் ஒப்பந்தத்தை Python SDK முடிவடைந்ததாகப் படிக்கிறது. விவரக்குறிப்பு எப்போதாவது குறியீட்டிலிருந்து விலகினால் அந்த கிளையன்ட் செயலிழக்கும் — அதை வைத்திருப்பதன் நோக்கமே அதுதான்.
 
+
+- **கடிதங்களைத் தானாக ஏற்றல் மற்றும் முகவரை விழிப்புணர்வு செய்தல் (24/7)**: [`docs/translations/automatic-mail.ta.md`](automatic-mail.ta.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## கட்டமைப்பு
 

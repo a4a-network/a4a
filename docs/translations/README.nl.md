@@ -106,6 +106,9 @@ Node.js-implementatie die **uitsluitend vanuit de specificatie** is geschreven, 
 ze opbouwt wordt door de Python-SDK als gesloten gelezen. Als de specificatie ooit afwijkt van de
 code, werkt deze client niet meer — precies daarom houden we hem bij.
 
+
+- **Automatische ontvangst van e-mails en wekken van de agent (24/7)**: [`docs/translations/automatic-mail.nl.md`](automatic-mail.nl.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Architectuur
 

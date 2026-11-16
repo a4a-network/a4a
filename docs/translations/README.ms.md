@@ -80,6 +80,9 @@ Protokol dinyatakan dengan cukup tepat untuk dilaksanakan berpandukan teks sahaj
 
 Kami mengekalkan bukti pelaksanaannya sendiri: [`interop/spec-client/`](../../interop/spec-client/) ialah pelaksanaan Node.js kecil yang ditulis **daripada spesifikasi sahaja**, tanpa melihat `sdk-python/` atau `relay/`. Ia melengkapkan keseluruhan urus niaga dengan dua tandatangan, dan Python SDK membaca urus niaga yang dibinanya sebagai telah dimuktamadkan. Jika spesifikasi menyimpang daripada kod, klien ini akan gagal — itulah tujuan ia dikekalkan.
 
+
+- **Penerimaan e-mel automatik dan pemacuan agen (24/7)**: [`docs/translations/automatic-mail.ms.md`](automatic-mail.ms.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Seni bina
 

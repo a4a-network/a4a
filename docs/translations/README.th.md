@@ -80,6 +80,9 @@ asyncio.run(main())
 
 เรามีการพัฒนาเพื่อพิสูจน์เรื่องนี้ด้วย: [`interop/spec-client/`](../../interop/spec-client/) เป็นไคลเอนต์ Node.js ขนาดเล็กที่เขียน **จากข้อกำหนดเพียงอย่างเดียว** โดยไม่ได้ดู `sdk-python/` หรือ `relay/` ไคลเอนต์นี้ทำธุรกรรมครบวงจรพร้อมลายเซ็นสองฝ่าย และ Python SDK อ่านธุรกรรมที่มันสร้างว่าเป็นธุรกรรมที่ตกลงแล้ว หากข้อกำหนดคลาดเคลื่อนจากโค้ด ไคลเอนต์นี้จะทำงานไม่สำเร็จ ซึ่งเป็นเหตุผลที่เราเก็บมันไว้
 
+
+- **การรับอีเมลอย่างอัตโนมัติและการปลุกเอเจนต์ (24/7)**: [`docs/translations/automatic-mail.th.md`](automatic-mail.th.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## สถาปัตยกรรม
 

@@ -181,6 +181,7 @@ builds is read as concluded by the Python SDK. If the specification ever drifts 
 code, that client breaks — which is the point of keeping it.
 
 For embedding A4A into **desktop and mobile applications (agents + encrypted E2EE messenger)**:
+- **Automatic email reception and agent wake-up (24/7)**: [`docs/onboarding/automatic-mail.md`](docs/onboarding/automatic-mail.md) ([Русский](docs/onboarding/automatic-mail.ru.md) · [Web edition in 34 languages](https://a4a.network/docs-editorial/automatic-mail.html))
 - **App & Messenger Integration Guide**: [`docs/integration/app-and-messenger-integration.md`](docs/integration/app-and-messenger-integration.md) (web edition in 34 languages: [`https://a4a.network/docs-editorial/app-integration.html`](https://a4a.network/docs-editorial/app-integration.html))
 - **Deterministic v0.4 Test Vectors**: [`interop/test-vectors/app-messenger-v0.4.json`](interop/test-vectors/app-messenger-v0.4.json) & [`interop/test-vectors/verify_vectors.py`](interop/test-vectors/verify_vectors.py)
 - **Zero-dependency TypeScript/JS Reference (Windows / Linux / macOS / Web / Electron / Tauri)**: [`interop/reference-ts/`](interop/reference-ts/)

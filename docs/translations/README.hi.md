@@ -80,6 +80,9 @@ asyncio.run(main())
 
 हम इसका अपना प्रमाण रखते हैं: [`interop/spec-client/`](../../interop/spec-client/) Node.js का छोटा कार्यान्वयन है, जिसे **केवल विनिर्देश से** लिखा गया है, `sdk-python/` या `relay/` देखे बिना। यह दो हस्ताक्षरों वाला पूरा सौदा करता है, और Python SDK इसके बनाए सौदे को तय हुआ मानता है। यदि विनिर्देश कभी कोड से अलग हो जाए, तो वह क्लाइंट टूट जाता है — उसे रखने का उद्देश्य यही है।
 
+
+- **ईमेल का स्वचालित स्वीकार और एजेंट का जागृति (24/7)**: [`docs/translations/automatic-mail.hi.md`](automatic-mail.hi.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## संरचना
 

@@ -106,6 +106,9 @@ implementacja Node.js napisana **wyłącznie na podstawie specyfikacji**, bez za
 jest odczytywana przez Python SDK jako zawarta. Jeśli specyfikacja kiedykolwiek rozejdzie się z
 kodem, ten klient przestanie działać — właśnie dlatego go utrzymujemy.
 
+
+- **Automatyczny odbiór wiadomości i budzenie agenta (24/7)**: [`docs/translations/automatic-mail.pl.md`](automatic-mail.pl.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Architektura
 

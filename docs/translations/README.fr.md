@@ -106,6 +106,9 @@ implémentation Node.js écrite **uniquement à partir de la spécification**, s
 reconnaît l’accord qu’elle produit comme conclu. Si la spécification diverge un jour du
 code, ce client cessera de fonctionner — c’est précisément la raison de le conserver.
 
+
+- **Réception automatique des e-mails et réveil de l'agent (24/7)**: [`docs/translations/automatic-mail.fr.md`](automatic-mail.fr.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Architecture
 

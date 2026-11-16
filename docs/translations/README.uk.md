@@ -106,6 +106,9 @@ asyncio.run(main())
 Python SDK розпізнає як укладену. Якщо специфікація колись розійдеться з
 кодом, цей клієнт перестане працювати — саме заради цього ми його зберігаємо.
 
+
+- **Автоматичний прийом листів та пробудження агента (24/7)**: [`docs/translations/automatic-mail.uk.md`](automatic-mail.uk.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## Архітектура
 

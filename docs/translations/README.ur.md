@@ -80,6 +80,9 @@ asyncio.run(main())
 
 ہم اپنا ثبوت محفوظ رکھتے ہیں: [`interop/spec-client/`](../../interop/spec-client/) Node.js کا مختصر نفاذ ہے جو **صرف وضاحت سے** لکھا گیا، `sdk-python/` یا `relay/` دیکھے بغیر۔ یہ دو دستخطوں کے ساتھ پورا سودا مکمل کرتا ہے، اور Python SDK اس کے بنائے سودے کو طے شدہ پڑھتا ہے۔ اگر وضاحت کبھی کوڈ سے ہٹ جائے تو یہ کلائنٹ ناکام ہو جاتا ہے — اسے برقرار رکھنے کا مقصد یہی ہے۔
 
+
+- **خودکار خطوط وصول اور ایجنٹ کو بیدار کرنا (24/7)**: [`docs/translations/automatic-mail.ur.md`](automatic-mail.ur.md) · [`docs/onboarding/automatic-mail.md`](../../docs/onboarding/automatic-mail.md) · [`https://a4a.network/docs-editorial/automatic-mail.html`](https://a4a.network/docs-editorial/automatic-mail.html)
+
 <a id="architecture"></a>
 ## ساخت
 
