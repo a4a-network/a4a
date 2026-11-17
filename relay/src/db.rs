@@ -532,6 +532,10 @@ impl LookupRateLimiter {
 const NOTARY_ONLY_REJECTION: &str =
     "kind 1040 is accepted only from this relay's declared notary (NIP-11 a4a.notary) and its retired keys";
 
+/// Reason for rejecting a kind-1059 gift-wrap envelope without a NIP-40 expiration tag.
+const GIFT_WRAP_EXPIRATION_REJECTION: &str =
+    "A4A gift-wrap envelope (kind 1059) must carry a valid NIP-40 expiration tag";
+
 pub async fn check_a4a_delegation(
     repo: &Arc<dyn NostrRepo>,
     cache: &A4aCache,
@@ -565,6 +569,16 @@ pub async fn check_a4a_delegation(
             return Err(NOTARY_ONLY_REJECTION.to_owned());
         }
         return Ok(());
+    }
+
+    // Every A4A gift-wrap envelope (kind 1059) carries a NIP-40 `expiration` tag
+    // (`sdk-python/a4a/agent.py`), whereas unauthenticated NIP-17 chat broadcasts from
+    // the public Nostr network arrive as kind 1059 without `expiration`. Because kind 1059
+    // is signed by a one-time ephemeral key and cannot require a kind-31000 delegation,
+    // rejecting unexpiring kind-1059 envelopes at admission blocks foreign Nostr spam
+    // before it reaches storage.
+    if event.kind == crate::a4a_delegation::A4A_KIND_GIFT_WRAP && event.expiration().is_none() {
+        return Err(GIFT_WRAP_EXPIRATION_REJECTION.to_owned());
     }
 
     // A revocation is the one A4A event whose own shape the relay must police:
@@ -2651,6 +2665,38 @@ mod tests {
 
         let result = check_a4a_delegation(&repo, &cache, &limiter, &delegation, &settings).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn gift_wrap_requires_expiration_tag_when_a4a_enabled() {
+        let repo: Arc<dyn NostrRepo> = Arc::new(test_repo().await);
+        let cache = A4aCache::new();
+        let limiter = test_limiter();
+        let settings = a4a_settings(None);
+        let chain = make_chain();
+
+        // Unexpiring kind-1059 (foreign NIP-17 chat broadcast) is rejected at admission.
+        let unexpiring = make_event(
+            chain.agent_pubkey.clone(),
+            crate::a4a_delegation::A4A_KIND_GIFT_WRAP,
+            vec![vec!["p".to_owned(), chain.owner_pubkey.clone()]],
+        );
+        let err = check_a4a_delegation(&repo, &cache, &limiter, &unexpiring, &settings)
+            .await
+            .unwrap_err();
+        assert_eq!(err, GIFT_WRAP_EXPIRATION_REJECTION);
+
+        // Kind-1059 carrying a valid NIP-40 expiration tag is admitted.
+        let expiring = make_event(
+            chain.agent_pubkey,
+            crate::a4a_delegation::A4A_KIND_GIFT_WRAP,
+            vec![
+                vec!["p".to_owned(), chain.owner_pubkey],
+                vec!["expiration".to_owned(), future_expiration().to_string()],
+            ],
+        );
+        let ok = check_a4a_delegation(&repo, &cache, &limiter, &expiring, &settings).await;
+        assert!(ok.is_ok(), "expected Ok for expiring gift wrap, got {ok:?}");
     }
 
     // --- LookupRateLimiter (hardening item 2: cold-cache flood) ---

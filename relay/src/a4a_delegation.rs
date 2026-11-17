@@ -38,6 +38,11 @@ pub const A4A_KIND_REVOCATION: u64 = 31007;
 /// Bitcoin block's time. Published by the relay notary; see specification §2.9.
 pub const A4A_KIND_TIMESTAMP: u64 = 1040;
 
+/// NIP-59 gift-wrap envelope (kind 1059). Signed by a one-time ephemeral key so it
+/// cannot carry an A4A delegation tag, but every A4A gift wrap carries a NIP-40
+/// `expiration` tag so storage remains bounded.
+pub const A4A_KIND_GIFT_WRAP: u64 = 1059;
+
 /// Validate that `delegation_event` legitimately delegates authority to
 /// `event`'s author, per the 5 A4A SDK rules (`sdk-python/a4a/delegation.py`):
 ///
