@@ -1,4 +1,4 @@
-"""A4A Sealed Envelope (kind 1059) for metadata privacy.
+"""NIP-59 gift wrap for A4A metadata privacy.
 
 A private message—a SIGNED inner event—is encrypted into a seal (kind 13, signed by
 the sender) from sender to recipient, then wrapped as kind 1059 by a ONE-TIME ephemeral
@@ -6,8 +6,8 @@ key with a fuzzed `created_at`. The relay sees only an envelope from a random ke
 recipient `p`: sender and precise time are hidden, while content and delivery_id remain
 inside and unavailable to the relay.
 
-Unlike unsigned rumor schemes, the inner A4A event is SIGNED by the sender.
-This permits self-verifying disclosure in a dispute—the sender signed
+Intentional difference from canonical NIP-59: the inner event is SIGNED rather than an
+unsigned rumor. This permits self-verifying disclosure in a dispute—the sender signed
 this exact text, and disclosure does not reveal keys. The tradeoff is less deniability,
 which is desirable for verifiable agreements.
 """

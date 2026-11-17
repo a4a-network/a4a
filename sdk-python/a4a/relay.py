@@ -60,7 +60,9 @@ def _closed_hint(reason: str) -> str:
                 "fields must contain numbers, while `authors`/`ids` must contain hex "
                 "strings without null")
     if low.startswith("rate-limited:"):
-        return ". The relay is rate-limiting requests; retry later or narrow the filter"
+        return (". The relay is rate-limiting requests; retry later, switch to another "
+                "regional A4A relay, or run your own relay to help the community "
+                "(https://github.com/a4a-network/a4a/tree/main/relay)")
     if low.startswith("blocked:") or low.startswith("auth-required:"):
         return ". The relay rejected the subscription; see its policy (NIP-11)"
     return ""
@@ -437,6 +439,13 @@ class RelayClient:
                          "uses the local time, and the relay rejected that timestamp")
                 hint = (f". {where}. Synchronize the clock "
                         f"(Windows: w32tm /resync, Linux: timedatectl set-ntp true)")
+            elif (reason.lower().startswith("rate-limited:")
+                  or "rate limited" in reason.lower()
+                  or "cannot accept events right now" in reason.lower()):
+                hint = (". The public relay is under heavy load; retry shortly, configure "
+                        "an additional regional relay, or deploy your own A4A relay via "
+                        "Docker to help the community "
+                        "(https://github.com/a4a-network/a4a/tree/main/relay)")
             raise RelayError(f"relay rejected the event: {reason}{hint}", reason=reason)
 
     @staticmethod
@@ -640,6 +649,115 @@ class FanOutRelayClient:
                 f"inspection budget grows with their count; received {len(unique)}")
         self.clients = [RelayClient(u, **kwargs) for u in unique]
         self.url = self.clients[0].url
+        self._breaker: dict[str, dict] = {}
+
+    #: Per-node circuit breaker threshold and cooldown (in seconds).
+    #:
+    #: When one node in a multi-node fan-out is unreachable, out of storage, or
+    #: timing out while at least one sibling node is healthy, repeating a 5-10s
+    #: network wait on that dead node on every subsequent query/publish step in the
+    #: workflow stalls multi-step operations (mandate check -> relay lookup ->
+    #: publish -> ACK poll). Opening the per-node breaker for `breaker_cooldown`
+    #: seconds bypasses the dead node immediately while preserving all partial
+    #: redundancy warnings and accepted-copy counts, then probes it again once
+    #: the cooldown elapses (half-open recovery).
+    breaker_threshold: int = 1
+    breaker_cooldown: float = 30.0
+    publish_deadline: float = 5.0
+
+    def _breaker_map(self) -> dict[str, dict]:
+        b = getattr(self, "_breaker", None)
+        if b is None:
+            b = {}
+            self._breaker = b
+        return b
+
+    @staticmethod
+    def _is_tripworthy_failure(exc: BaseException) -> bool:
+        if isinstance(exc, (RelayUnreachable, asyncio.TimeoutError, OSError)):
+            return True
+        if isinstance(exc, RelayError):
+            reason = (getattr(exc, "reason", "") or str(exc)).lower()
+            if any(tok in reason for tok in (
+                "disk", "storage", "no space", "database is locked",
+                "cannot accept events", "io error", "internal error",
+            )):
+                return True
+        return False
+
+    def _record_node_success(self, url: str) -> None:
+        b = self._breaker_map()
+        key = _canonical_relay_key(url)
+        if key in b:
+            b.pop(key, None)
+
+    def _record_node_failure(self, url: str, exc: BaseException) -> None:
+        if not self._is_tripworthy_failure(exc):
+            return
+        b = self._breaker_map()
+        key = _canonical_relay_key(url)
+        now = time.monotonic()
+        prev = b.get(key)
+        fails = (int(prev["failures"]) + 1) if prev else 1
+        opened = fails >= self.breaker_threshold
+        b[key] = {
+            "url": url,
+            "failures": fails,
+            "last_error": exc,
+            "opened_at": now if opened else 0.0,
+        }
+
+    def _is_breaker_open(self, entry: dict | None, now: float) -> bool:
+        if not entry:
+            return False
+        opened_at = float(entry.get("opened_at", 0.0))
+        if opened_at <= 0.0:
+            return False
+        return now < (opened_at + float(self.breaker_cooldown))
+
+    def _open_breaker_error(self, url: str, now: float | None = None) -> BaseException | None:
+        b = self._breaker_map()
+        if not b or len(self.clients) <= 1:
+            return None
+        ts = time.monotonic() if now is None else now
+        entry = b.get(_canonical_relay_key(url))
+        if not self._is_breaker_open(entry, ts):
+            return None
+        # Never short-circuit all nodes: at least one node in the pool must remain closed/half-open.
+        closed_count = sum(
+            1 for c in self.clients
+            if not self._is_breaker_open(b.get(_canonical_relay_key(c.url)), ts)
+        )
+        if closed_count == 0:
+            return None
+        return entry.get("last_error")
+
+    def breaker_status(self) -> dict[str, dict]:
+        """Return a snapshot of per-node circuit breaker states (`closed`, `open`, `half_open`)."""
+        now = time.monotonic()
+        b = self._breaker_map()
+        out: dict[str, dict] = {}
+        for c in self.clients:
+            key = _canonical_relay_key(c.url)
+            entry = b.get(key)
+            if self._is_breaker_open(entry, now):
+                rem = (float(entry["opened_at"]) + float(self.breaker_cooldown)) - now
+                out[c.url] = {
+                    "state": "open",
+                    "failures": int(entry["failures"]),
+                    "remaining_cooldown_s": round(max(0.0, rem), 2),
+                    "last_error": str(entry["last_error"]),
+                }
+            elif entry:
+                out[c.url] = {
+                    "state": "half_open",
+                    "failures": int(entry["failures"]),
+                    "remaining_cooldown_s": 0.0,
+                    "last_error": str(entry["last_error"]),
+                }
+            else:
+                out[c.url] = {"state": "closed", "failures": 0, "remaining_cooldown_s": 0.0}
+        return out
 
     async def connect(self) -> None:
         """Connect to every node. One success is enough; the others may be under maintenance."""
@@ -652,7 +770,10 @@ class FanOutRelayClient:
             raise failures[0]
         for client, result in zip(self.clients, results):
             if isinstance(result, BaseException):
+                self._record_node_failure(client.url, result)
                 log.warning("relay %s is unavailable: %s", client.url, result)
+            else:
+                self._record_node_success(client.url)
 
     async def aclose(self) -> None:
         await asyncio.gather(*(c.aclose() for c in self.clients), return_exceptions=True)
@@ -687,9 +808,40 @@ class FanOutRelayClient:
             raise ValueError(
                 f"{min_accepted} copies are required, but only {len(self.clients)} distinct "
                 f"nodes are configured; the requirement cannot be satisfied")
-        results = await asyncio.gather(
-            *(c.publish(event, replay_on_reconnect=replay_on_reconnect) for c in self.clients),
-            return_exceptions=True)
+
+        now = time.monotonic()
+        open_errors = {
+            c.url: err
+            for c in self.clients
+            if (err := self._open_breaker_error(c.url, now)) is not None
+        }
+        # Only bypass open-breaker nodes if the remaining healthy nodes can still satisfy min_accepted
+        use_breaker = (len(self.clients) - len(open_errors)) >= min_accepted
+
+        async def _pub_one(c):
+            if use_breaker and c.url in open_errors:
+                return open_errors[c.url]
+            try:
+                if len(self.clients) > 1:
+                    await asyncio.wait_for(
+                        c.publish(event, replay_on_reconnect=replay_on_reconnect),
+                        timeout=self.publish_deadline,
+                    )
+                else:
+                    await c.publish(event, replay_on_reconnect=replay_on_reconnect)
+            except asyncio.TimeoutError:
+                err = RelayUnreachable(
+                    f"no OK response from {c.url} within {self.publish_deadline}s"
+                )
+                self._record_node_failure(c.url, err)
+                return err
+            except BaseException as exc:
+                self._record_node_failure(c.url, exc)
+                return exc
+            self._record_node_success(c.url)
+            return None
+
+        results = await asyncio.gather(*(_pub_one(c) for c in self.clients), return_exceptions=True)
         failures = [(c.url, r) for c, r in zip(self.clients, results) if isinstance(r, BaseException)]
         accepted = len(self.clients) - len(failures)
         if not accepted:
@@ -762,8 +914,20 @@ class FanOutRelayClient:
         return max(1, budget // nodes)
 
     async def _gather(self, call):
-        tasks = [asyncio.ensure_future(call(c)) for c in self.clients]
-        done, pending = await asyncio.wait(tasks, timeout=self.read_deadline)
+        now = time.monotonic()
+        active_pairs = []
+        pre_failed: dict[int, BaseException] = {}
+        for idx, c in enumerate(self.clients):
+            err = self._open_breaker_error(c.url, now)
+            if err is not None:
+                pre_failed[idx] = err
+            else:
+                active_pairs.append((idx, c, asyncio.ensure_future(call(c))))
+        tasks = [t for _, _, t in active_pairs]
+        done, pending = (
+            await asyncio.wait(tasks, timeout=self.read_deadline)
+            if tasks else (set(), set())
+        )
         for task in pending:
             task.cancel()
         if pending:
@@ -771,15 +935,28 @@ class FanOutRelayClient:
             # discarded silently. A node that missed the deadline must be named;
             # otherwise reduced coverage looks like "those nodes had nothing."
             await asyncio.gather(*pending, return_exceptions=True)
+        task_by_idx = {idx: (c, t) for idx, c, t in active_pairs}
         results = []
-        for client, task in zip(self.clients, tasks):
+        for idx, client in enumerate(self.clients):
+            if idx in pre_failed:
+                results.append(pre_failed[idx])
+                continue
+            _, task = task_by_idx[idx]
             if task in done:
-                results.append(task.exception() or task.result())
+                res = task.exception() or task.result()
+                if isinstance(res, BaseException):
+                    self._record_node_failure(client.url, res)
+                else:
+                    self._record_node_success(client.url)
+                results.append(res)
             else:
                 log.warning("relay %s missed the %.1fs deadline and was excluded from this read",
                             client.url, self.read_deadline)
-                results.append(asyncio.TimeoutError(
-                    f"relay {client.url} did not respond within {self.read_deadline}s"))
+                timeout_err = asyncio.TimeoutError(
+                    f"relay {client.url} did not respond within {self.read_deadline}s"
+                )
+                self._record_node_failure(client.url, timeout_err)
+                results.append(timeout_err)
         good, unavailable = [], []
         for client, result in zip(self.clients, results):
             if isinstance(result, (RelayError, OSError, asyncio.TimeoutError)):

@@ -102,6 +102,9 @@ def cli_main() -> None:
     if argv and argv[0].startswith("wake-"):
         _wake_admin(argv)
         return
+    if argv and argv[0].startswith("supervisor-"):
+        _supervisor_admin(argv)
+        return
     if argv and argv[0] in ("issue-mandate", "address", "owner-separate"):
         try:
             _admin(argv)
@@ -126,7 +129,7 @@ def cli_main() -> None:
         try:
             with inbox_runtime.open_runtime():
                 pass
-            asyncio.run(run_channel(mcp, inbox_runtime.notices()))
+            asyncio.run(run_channel(mcp, inbox_runtime.channel_notices()))
         except InboxError as exc:
             raise SystemExit(f"A4A inbox: {exc}") from exc
         return
@@ -253,6 +256,12 @@ def _inbox_admin(argv):
                      "The stored envelope stays after processing, so a cut print loses nothing."))
     reread.add_argument("--seq", type=int, required=True)
     reread.add_argument("--out", required=True)
+    audit_p = commands.add_parser(
+        "inbox-audit",
+        description=("Show the local claim/completion audit log (who took which letter, when, "
+                     "with which PID/command, and how it finished)."))
+    audit_p.add_argument("--seq", type=int, default=None, help="optional message seq filter")
+    audit_p.add_argument("--limit", type=int, default=50, help="return 1..1000 records; default 50")
     unknown = commands.add_parser(
         "inbox-unknown",
         description=("Show only seq and inner_id for legacy inbox messages in the "
@@ -389,6 +398,25 @@ def _inbox_admin(argv):
         description=("Publish the journaled envelope of one unacknowledged delivery again, "
                      "byte for byte. Bounded to five times per delivery."))
     outbox_republish.add_argument("--delivery-id", required=True)
+    outbox_prune = commands.add_parser(
+        "outbox-prune",
+        description=("Archive and remove expired (>48h) unconfirmed/failed delivery records "
+                     "from the active outbox table into a hardened JSONL archive file."))
+    outbox_prune.add_argument("--older-than-days", type=int, default=2,
+                              help="Minimum age in days (at least 2 days / 48h give-up window; default: 2)")
+    outbox_prune.add_argument("--archive", default=None,
+                              help="Optional JSONL archive file path (default: outbox/archived-unconfirmed.jsonl)")
+    set_relays_p = commands.add_parser(
+        "set-relays",
+        description=("Owner command: update the configured relay pool in inbox-policy.json "
+                     "and republish the NIP-65 relay list. Requires at least 2 relays unless "
+                     "--allow-single-relay is explicitly passed."))
+    set_relays_p.add_argument("relays", nargs="+",
+                              help="Relay URLs (comma-separated or space-separated, e.g. wss://ru1.a4a.network,wss://ru2.a4a.network,wss://eu1.a4a.network)")
+    set_relays_p.add_argument("--allow-single-relay", action="store_true",
+                              help="Explicitly allow a single relay (for example, an intentional private relay)")
+    set_relays_p.add_argument("--no-publish", action="store_true",
+                              help="Update local inbox-policy.json only without publishing kind-10002 relay list")
     deliver = commands.add_parser(
         "deliver",
         description=("Reliable private delivery to an allowed contact, exactly like MCP "
@@ -410,6 +438,10 @@ def _inbox_admin(argv):
                          help="explicit owner approval flag for L1 or restricted categories")
     deliver.add_argument("--commitment-note", default="",
                          help="short non-secret note for the outbound registry")
+    deliver.add_argument("--ack-timeout", type=float, default=None,
+                         help="per-attempt ACK wait timeout in seconds (0 < s <= 300; defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0)")
+    deliver.add_argument("--retries", type=int, default=None,
+                         help="retry count after initial ACK wait (0..20; defaults to A4A_DELIVER_RETRIES or 3)")
     body = deliver.add_mutually_exclusive_group(required=True)
     body.add_argument("--text")
     body.add_argument("--text-file")
@@ -430,10 +462,20 @@ def _inbox_admin(argv):
                        help="explicit owner approval flag for L1 or restricted categories")
     reply.add_argument("--commitment-note", default="",
                        help="short non-secret note for the outbound registry")
+    reply.add_argument("--ack-timeout", type=float, default=None,
+                       help="per-attempt ACK wait timeout in seconds (0 < s <= 300; defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0)")
+    reply.add_argument("--retries", type=int, default=None,
+                       help="retry count after initial ACK wait (0..20; defaults to A4A_DELIVER_RETRIES or 3)")
     reply_body = reply.add_mutually_exclusive_group(required=True)
     reply_body.add_argument("--text")
     reply_body.add_argument("--text-file")
     watch = commands.add_parser("inbox-watch")
+    watch.add_argument("--home", default="",
+                       help="explicit A4A_HOME path for direct service launchers without shell wrappers")
+    watch.add_argument("--relay", default="",
+                       help="explicit A4A_RELAY list for direct service launchers without shell wrappers")
+    watch.add_argument("--log-file", default="",
+                       help="optional append-only log file path for direct service launchers")
     lifetime = watch.add_mutually_exclusive_group()
     lifetime.add_argument("--once", action="store_true")
     lifetime.add_argument("--duration", type=int, default=3600)
@@ -486,8 +528,48 @@ def _inbox_admin(argv):
     q_decide.add_argument("--decision", required=True, choices=("accept", "reject", "block"))
     q_decide.add_argument("--label", default=None,
                           help="Optional human-readable contact label when decision=accept (up to 160 chars)")
+    rot_key = commands.add_parser(
+        "rotate-agent-key",
+        description="Revoke the current agent key (kind 31007), issue a new agent key + mandate, and migrate the local mailbox.")
+    rot_key.add_argument("--reason", default="key rotation",
+                         help="Reason recorded in the kind-31007 revocation event")
+    rot_key.add_argument("--days", type=int, default=30,
+                         help="New mandate lifetime in days (1..365, default 30)")
+    rot_key.add_argument("--agent-name", default="User MCP agent")
+    chk_upd = commands.add_parser("check-update", allow_abbrev=False)
+    chk_upd.add_argument("--current-version", default="0.4.0")
+    chk_upd.add_argument("--current-build-id", default="")
+    contacts_p = commands.add_parser(
+        "contacts",
+        description="Manage this mailbox's rich address book: list, search, set, seed, pull, or sync encrypted to relays.")
+    contacts_p.add_argument("--action", default="list",
+                            choices=("list", "search", "set", "seed", "pull", "sync"))
+    contacts_p.add_argument("--query", default="", help="Search query for --action search")
+    contacts_p.add_argument("--peer", default="", help="Peer 64-hex or apub1... address for --action set")
+    contacts_p.add_argument("--label", default=None, help="Mandatory human-readable contact label (name, project, role)")
+    contacts_p.add_argument("--trust-level", type=int, default=None, choices=(1, 2, 3))
+    contacts_p.add_argument("--origin", choices=("external_contact", "own_developer", "scoped_partner", "owner_agent"))
+    contacts_p.add_argument("--topic", action="append", default=[])
+    contacts_p.add_argument("--remote-attested", action="store_true", default=None)
+    contacts_p.add_argument("--include-known", action="store_true")
+    c_list = commands.add_parser("contacts-list", description="List all contacts in this mailbox's address book.")
+    c_list.add_argument("--include-known", action="store_true")
+    c_search = commands.add_parser("contacts-search", description="Search contacts by name, project, role, mailbox, pubkey, or apub.")
+    c_search.add_argument("query", nargs="?", default="")
+    c_search.add_argument("--query", dest="query_flag", default="")
+    c_search.add_argument("--include-known", action="store_true", default=True)
+    c_set = commands.add_parser("contacts-set", description="Add or update a contact with a mandatory human-readable label.")
+    c_set.add_argument("--peer", required=True, help="Peer 64-hex or apub1... address")
+    c_set.add_argument("--label", required=True, help="Mandatory human-readable label (name, project, role)")
+    c_set.add_argument("--trust-level", type=int, default=None, choices=(1, 2, 3))
+    c_set.add_argument("--origin", choices=("external_contact", "own_developer", "scoped_partner", "owner_agent"))
+    c_set.add_argument("--topic", action="append", default=[])
+    c_set.add_argument("--remote-attested", action="store_true", default=None)
+    c_sync = commands.add_parser("contacts-sync", description="Synchronize the encrypted address book (kind 31033, d='a4a:address_book') with relays.")
+    c_sync.add_argument("--pull-only", action="store_true", help="Pull and merge from relays without publishing")
+    c_sync.add_argument("--seed-known", action="store_true", help="Seed missing labels from known-contacts.json before syncing")
     args = parser.parse_args(argv)
-    if sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
+    if sys.stdout is not None and sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
         sys.stdout.reconfigure(encoding="utf-8")
 
     def emit(value):
@@ -549,6 +631,8 @@ def _inbox_admin(argv):
             emit(taken)
         elif args.command == "inbox-read":
             emit(inbox_runtime.reread(args.seq, args.out))
+        elif args.command == "inbox-audit":
+            emit({"audit": inbox_runtime.read_audit(seq=args.seq, limit=args.limit)})
         elif args.command == "inbox-unknown":
             emit(inbox_runtime.unknown_bindings(args.limit))
         elif args.command == "inbox-complete":
@@ -569,8 +653,35 @@ def _inbox_admin(argv):
             emit(inbox_runtime.prune(args.older_than_days, args.archive,
                                      compact=args.compact))
         elif args.command == "inbox-watch":
-            _quiet_poll_logs()
-            asyncio.run(observe())
+            if getattr(args, "home", ""):
+                from . import identity
+                from .onboarding import _absolute
+                try:
+                    home_path = _absolute(args.home, "home")
+                except ValueError as exc:
+                    raise InboxError(str(exc)) from None
+                os.environ["A4A_HOME"] = str(home_path)
+                identity.IDENTITY_DIR = home_path
+                identity.IDENTITY_FILE = home_path / "identity.json"
+            if getattr(args, "relay", ""):
+                os.environ["A4A_RELAY"] = args.relay
+            log_handle = None
+            if getattr(args, "log_file", ""):
+                from .onboarding import _absolute
+                try:
+                    log_path = _absolute(args.log_file, "log-file")
+                except ValueError as exc:
+                    raise InboxError(str(exc)) from None
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_handle = open(log_path, "a", encoding="utf-8", buffering=1)
+                sys.stdout = log_handle
+                sys.stderr = log_handle
+            try:
+                _quiet_poll_logs()
+                asyncio.run(observe())
+            finally:
+                if log_handle is not None:
+                    log_handle.close()
         elif args.command == "set-trust":
             if args.trust_level is None and args.label is None and args.origin is None and not args.topic and args.remote_attested is None:
                 raise InboxError("set-trust requires at least --trust-level or --label")
@@ -581,11 +692,56 @@ def _inbox_admin(argv):
                 topics=args.topic,
                 remote_trust_attested=args.remote_attested,
                 label=args.label,
+                require_label=True,
             )
             from a4a.keys import Keys
             norm = Keys.normalize_pubkey(args.peer)
             emit({"state": "trust_updated", "peer": norm,
                   "peer_policy": policy.peer_policy(norm)})
+        elif args.command == "contacts":
+            act = args.action
+            if act == "list":
+                emit(inbox_runtime.list_contacts(include_known=args.include_known))
+            elif act == "search":
+                emit(inbox_runtime.search_contacts(args.query, include_known=args.include_known))
+            elif act == "set":
+                if not args.peer:
+                    raise InboxError("contacts --action set requires --peer")
+                emit(inbox_runtime.set_contact(
+                    args.peer,
+                    label=args.label,
+                    level=args.trust_level,
+                    origin=args.origin,
+                    topics=args.topic,
+                    remote_trust_attested=args.remote_attested,
+                ))
+            elif act == "seed":
+                emit(inbox_runtime.seed_known_contacts(add_all=False))
+            elif act == "pull":
+                emit(asyncio.run(inbox_runtime.pull_address_book_from_relays()))
+            elif act == "sync":
+                emit(asyncio.run(inbox_runtime.sync_address_book_to_relays(pull_first=True)))
+        elif args.command == "contacts-list":
+            emit(inbox_runtime.list_contacts(include_known=args.include_known))
+        elif args.command == "contacts-search":
+            q = args.query_flag or args.query
+            emit(inbox_runtime.search_contacts(q, include_known=args.include_known))
+        elif args.command == "contacts-set":
+            emit(inbox_runtime.set_contact(
+                args.peer,
+                label=args.label,
+                level=args.trust_level,
+                origin=args.origin,
+                topics=args.topic,
+                remote_trust_attested=args.remote_attested,
+            ))
+        elif args.command == "contacts-sync":
+            if args.seed_known:
+                inbox_runtime.seed_known_contacts(add_all=False)
+            if args.pull_only:
+                emit(asyncio.run(inbox_runtime.pull_address_book_from_relays()))
+            else:
+                emit(asyncio.run(inbox_runtime.sync_address_book_to_relays(pull_first=True)))
         elif args.command == "approve-send":
             if args.text_file and args.text:
                 raise InboxError("pass either --text or --text-file, not both")
@@ -624,6 +780,43 @@ def _inbox_admin(argv):
             emit(inbox_runtime.quarantine_digest(state=state_filter, limit=args.limit))
         elif args.command == "quarantine-decide":
             emit(inbox_runtime.quarantine_decide(args.req_id, args.decision, label=args.label))
+        elif args.command == "rotate-agent-key":
+            emit(asyncio.run(inbox_runtime.rotate_agent_key(
+                reason=args.reason,
+                days=args.days,
+                agent_name=args.agent_name,
+            )))
+        elif args.command == "check-update":
+            emit(asyncio.run(inbox_runtime.check_update_advisory(
+                current_version=args.current_version,
+                current_build_id=args.current_build_id,
+            )))
+        elif args.command == "set-relays":
+            pol = inbox_runtime.set_relays(
+                args.relays,
+                allow_single_relay=args.allow_single_relay,
+            )
+            published_event_id = None
+            if not args.no_publish:
+                async def _pub_relays():
+                    from a4a import Agent
+                    from . import identity
+                    keys = identity.load_or_create_identity()
+                    async with Agent(list(pol.relays), keys=keys) as agent:
+                        return await agent.publish_relay_list(list(pol.relays))
+                with contextlib.suppress(Exception):
+                    published_event_id = asyncio.run(_pub_relays())
+            out_payload = {
+                "state": "relays_updated",
+                "relay": pol.relay,
+                "relays": list(pol.relays),
+                "relay_count": len(pol.relays),
+                "relay_list_event_id": published_event_id,
+            }
+            warn = inbox_runtime.relay_redundancy_warning(pol.relays)
+            if warn:
+                out_payload["relay_redundancy_warning"] = warn
+            emit(out_payload)
         elif args.command == "deliver":
             from . import server
             text = (pathlib.Path(args.text_file).read_text(encoding="utf-8")
@@ -639,6 +832,8 @@ def _inbox_admin(argv):
                 topic=args.topic,
                 owner_approval_token=token,
                 commitment_note=args.commitment_note,
+                ack_timeout=args.ack_timeout,
+                retries=args.retries,
             )
             result = _run_delivery(delivery, emit)
             emit({"result": result})
@@ -659,6 +854,8 @@ def _inbox_admin(argv):
                     topic=args.topic,
                     owner_approval_token=token,
                     commitment_note=args.commitment_note,
+                    ack_timeout=args.ack_timeout,
+                    retries=args.retries,
                 ),
                 emit,
             )
@@ -680,7 +877,7 @@ def _inbox_admin(argv):
                 raise SystemExit(f"A4A file: {exc}") from exc
         elif args.command.startswith("outbox-"):
             from . import identity, outbox_runtime
-            if (args.command not in ("outbox-list", "outbox-summary")
+            if (args.command not in ("outbox-list", "outbox-summary", "outbox-prune")
                     and not _is_delivery_id(args.delivery_id)):
                 raise SystemExit(_delivery_id_problem(args.delivery_id))
             # Opening the store creates it, so a shell with the wrong A4A_HOME would
@@ -692,6 +889,11 @@ def _inbox_admin(argv):
                     "the letters were sent from.")
             if args.command == "outbox-summary":
                 emit(outbox_runtime.summary())
+            elif args.command == "outbox-prune":
+                emit(outbox_runtime.prune_expired(
+                    older_than_days=args.older_than_days,
+                    archive_path=args.archive,
+                ))
             elif args.command == "outbox-list":
                 if not 1 <= args.limit <= 1000:
                     raise SystemExit("A4A outbox: --limit must be 1..1000")
@@ -738,7 +940,7 @@ def _delivery_id_problem(value):
 
 def _wake_admin(argv):
     from a4a.inbox import InboxError
-    from .wake_runtime import run_wake
+    from .wake_runtime import check_wake_capabilities, run_wake
     parser = _OwnerArgumentParser(prog="python -m a4a_mcp", allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("wake-run", allow_abbrev=False)
@@ -754,14 +956,102 @@ def _wake_admin(argv):
     lifetime.add_argument("--duration", type=int, default=3600)
     lifetime.add_argument("--forever", action="store_true",
                           help="ordinary receiver process until stopped; no model timer or service installation")
+    caps = commands.add_parser("wake-capabilities", allow_abbrev=False)
+    caps.add_argument("--token-file", required=True,
+                      help="absolute private wake-only credential file; never pass the token itself")
+    caps.add_argument("--endpoint", default="ws://127.0.0.1:9876/")
     args = parser.parse_args(argv)
     try:
-        result = asyncio.run(run_wake(args.project_id, args.target_session_id,
-            args.token_file, endpoint=args.endpoint, once=args.once,
-            duration=args.duration, forever=args.forever, resume=args.resume_rejected))
+        if args.command == "wake-capabilities":
+            result = asyncio.run(
+                check_wake_capabilities(args.token_file, endpoint=args.endpoint)
+            )
+        else:
+            result = asyncio.run(run_wake(args.project_id, args.target_session_id,
+                args.token_file, endpoint=args.endpoint, once=args.once,
+                duration=args.duration, forever=args.forever, resume=args.resume_rejected))
     except (InboxError, ValueError) as exc:
         raise SystemExit(f"A4A host wake: {exc}") from None
     print(json.dumps(result), flush=True)
+
+
+def _supervisor_admin(argv):
+    from a4a.inbox import InboxError
+    from . import supervisor
+    parser = _OwnerArgumentParser(prog="python -m a4a_mcp", allow_abbrev=False)
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    run = commands.add_parser("supervisor-run", allow_abbrev=False)
+    run.add_argument("--config", required=True, help="absolute path to supervisor.json")
+    run.add_argument("--log-file", default="", help="optional append-only log file path")
+    lifetime = run.add_mutually_exclusive_group()
+    lifetime.add_argument("--once", action="store_true")
+    lifetime.add_argument("--duration", type=int, default=3600)
+    lifetime.add_argument("--forever", action="store_true")
+
+    inv = commands.add_parser("supervisor-inventory", allow_abbrev=False)
+    inv.add_argument("--root", required=True, help="absolute path to root directory of mailbox profiles")
+
+    doc = commands.add_parser("supervisor-doctor", allow_abbrev=False)
+    doc.add_argument("--config", default="", help="optional absolute path to supervisor.json")
+    doc.add_argument("--root", default="", help="optional absolute path to profile root directory")
+
+    mig = commands.add_parser("supervisor-migrate-plan", allow_abbrev=False)
+    mig.add_argument("--root", required=True, help="absolute path to profile root directory")
+    mig.add_argument("--out-config", required=True, help="absolute path for supervisor.json")
+    mig.add_argument("--apply", action="store_true", help="commit config with reversible backup transaction")
+    mig.add_argument("--state-dir", default="", help="optional transaction state directory")
+
+    rb = commands.add_parser("supervisor-rollback", allow_abbrev=False)
+    rb.add_argument("--transaction", required=True, help="absolute path to migration transaction JSON")
+
+    args = parser.parse_args(argv)
+    if sys.stdout is not None and sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    try:
+        if args.command == "supervisor-run":
+            cfg = supervisor.load_supervisor_config(args.config)
+            log_handle = None
+            if args.log_file:
+                from .onboarding import _absolute
+                log_path = _absolute(args.log_file, "log-file")
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_handle = open(log_path, "a", encoding="utf-8", buffering=1)
+                sys.stdout = log_handle
+                sys.stderr = log_handle
+            try:
+                _quiet_poll_logs()
+                runner = supervisor.SupervisorRunner(cfg)
+                out = asyncio.run(runner.run(once=args.once, duration=args.duration, forever=args.forever))
+                print(json.dumps(out, ensure_ascii=False), flush=True)
+            finally:
+                if log_handle is not None:
+                    log_handle.close()
+        elif args.command == "supervisor-inventory":
+            profiles = supervisor.discover_profiles(args.root)
+            print(json.dumps({"profiles": profiles, "count": len(profiles)}, ensure_ascii=False), flush=True)
+        elif args.command == "supervisor-doctor":
+            if not args.config and not args.root:
+                raise supervisor.SupervisorError("supervisor-doctor requires --config and/or --root")
+            report = supervisor.doctor_supervisor(
+                config_path=args.config or None,
+                root=args.root or None,
+            )
+            print(json.dumps(report, ensure_ascii=False), flush=True)
+        elif args.command == "supervisor-migrate-plan":
+            plan = supervisor.plan_migration(
+                args.root,
+                args.out_config,
+                apply=args.apply,
+                state_dir=args.state_dir or None,
+            )
+            print(json.dumps(plan, ensure_ascii=False), flush=True)
+        elif args.command == "supervisor-rollback":
+            res = supervisor.rollback_migration(args.transaction)
+            print(json.dumps(res, ensure_ascii=False), flush=True)
+    except (InboxError, ValueError) as exc:
+        raise SystemExit(f"A4A supervisor: {exc}") from None
 
 
 class _OwnerArgumentParser(argparse.ArgumentParser):
@@ -860,6 +1150,10 @@ def _onboarding_cli(argv: list[str]) -> None:
     setup_p.add_argument("--allow-peer", action="append", default=[])
     setup_p.add_argument("--consumer", default="mcp-agent")
     setup_p.add_argument("--days", type=int, default=30)
+    setup_p.add_argument("--relays", default="",
+                         help="Comma-separated relay URLs (at least 2 required unless --allow-single-relay is passed)")
+    setup_p.add_argument("--allow-single-relay", action="store_true",
+                         help="Explicitly allow configuring only 1 relay (e.g., an intentional single private relay)")
 
     allow_p = sub.add_parser("allow-peer", description="Add one or more apub1.../hex peers to allowed_peers and import any waiting letters from them.")
     allow_p.add_argument("peers", nargs="+", help="Peer apub1... or 64-hex address(es)")
@@ -885,11 +1179,23 @@ def _onboarding_cli(argv: list[str]) -> None:
         print(json.dumps(val, ensure_ascii=False, indent=2), flush=True)
 
     if args.command == "setup":
-        if not os.environ.get("A4A_RELAY"):
+        if args.relays.strip():
+            os.environ["A4A_RELAY"] = args.relays.strip()
+        elif not os.environ.get("A4A_RELAY"):
             os.environ["A4A_RELAY"] = ",".join(DEFAULT_PUBLIC_RELAYS)
+        relays = _relay_urls()
+        if len(relays) < 2 and not args.allow_single_relay:
+            raise SystemExit(
+                f"A4A setup: Only 1 relay ({relays[0] if relays else 'none'}) is configured in A4A_RELAY. "
+                "A single relay is a single point of failure: if that node or route has a transient outage, "
+                "sending and receiving stop completely. Specify at least 2 relays (recommended: 3 — "
+                "2 in your region + 1 in another region, e.g. "
+                "A4A_RELAY=wss://ru1.a4a.network,wss://ru2.a4a.network,wss://eu1.a4a.network, or multiple private relays). "
+                "If you intentionally operate a single private relay and accept the availability risk, "
+                "pass --allow-single-relay."
+            )
         owner = identity.load_or_create_owner_identity()
         keys = identity.load_or_create_identity()
-        relays = _relay_urls()
         caps = [c.strip() for c in args.capabilities.split(",") if c.strip()] or ["general"]
         langs = [l.strip() for l in args.languages.split(",") if l.strip()] or ["en"]
 
@@ -921,8 +1227,9 @@ def _onboarding_cli(argv: list[str]) -> None:
             args.consumer, sorted(merged_peers),
             start_after=start_after, replace=True, ack_on_receipt=True,
             allowed_owners=sorted(existing.allowed_owners) if existing else (),
+            relays=relays,
         )
-        emit({
+        out = {
             "state": "ready",
             "agent_apub": keys.apub,
             "agent_pubkey": keys.pubkey_hex,
@@ -932,11 +1239,16 @@ def _onboarding_cli(argv: list[str]) -> None:
             "invite_prompt_en": f"Connect A4A (https://a4a.network/docs/connect-agent.txt) and message my agent {keys.apub}",
             "allowed_peers": sorted(policy.allowed_peers),
             "allowed_peers_apub": [Keys.encode_apub(p) for p in sorted(policy.allowed_peers)],
-            "relays": relays,
-        })
+            "relays": list(policy.relays),
+        }
+        warn = inbox_runtime.relay_redundancy_warning(policy.relays)
+        if warn:
+            out["relay_redundancy_warning"] = warn
+        emit(out)
         return
 
     if args.command == "allow-peer":
+        from . import known_contacts
         existing = inbox_runtime.load_policy()
         merged_peers = set(existing.allowed_peers) if existing else set()
         added_hex = set()
@@ -946,6 +1258,16 @@ def _onboarding_cli(argv: list[str]) -> None:
                     norm = Keys.normalize_pubkey(item.strip())
                     merged_peers.add(norm)
                     added_hex.add(norm)
+        for norm in sorted(added_hex):
+            existing_label = (
+                existing.peer_policy(norm).get("label", "") if existing else ""
+            ) or known_contacts.lookup_known_contact_label(norm)
+            if not args.label and not existing_label:
+                raise SystemExit(
+                    "A4A inbox: Contact label is required (--label \"Name / Project / Role\"): "
+                    "bare keys without a human-readable description are forbidden. "
+                    "Ask your owner how to label this contact (who they are, which project, and their role) before adding them."
+                )
         consumer = existing.consumer if existing else "mcp-agent"
         start_after = existing.start_after if existing else max(0, int(time.time()) - 86400)
         ack_on_receipt = existing.ack_on_receipt if existing else True
@@ -961,16 +1283,16 @@ def _onboarding_cli(argv: list[str]) -> None:
             invitations=existing.invitations if existing else None,
             peer_notes=existing.peer_notes if existing else None,
         )
-        if args.trust_level is not None or args.label is not None:
-            for norm in sorted(added_hex):
-                policy = inbox_runtime.set_peer_trust(
-                    norm,
-                    level=args.trust_level,
-                    origin=args.origin,
-                    topics=args.topic,
-                    remote_trust_attested=args.remote_attested,
-                    label=args.label,
-                )
+        for norm in sorted(added_hex):
+            policy = inbox_runtime.set_peer_trust(
+                norm,
+                level=args.trust_level,
+                origin=args.origin,
+                topics=args.topic,
+                remote_trust_attested=args.remote_attested,
+                label=args.label,
+                require_label=True,
+            )
 
         async def _import_waiting():
             imported = 0

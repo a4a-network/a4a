@@ -1,4 +1,4 @@
-"""A4A signed event structure, the base envelope for every A4A record."""
+"""Nostr event (NIP-01), the base structure for every A4A event."""
 import re
 import time
 

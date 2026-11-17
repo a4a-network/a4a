@@ -117,11 +117,13 @@ def summary(now: float | None = None) -> dict:
     empty_categories = {cat: 0 for cat in OUTBOUND_CATEGORIES}
     if not _journal_exists():
         return {"as_of": moment, "total": 0, "processed": 0, "stored_not_processed": 0,
-                "stored_not_processed_final": 0, "unconfirmed": 0, "unconfirmed_final": 0,
-                "not_delivered": 0, "by_category": empty_categories, "commitments_count": 0}
+                "stored_not_processed_final": 0, "unconfirmed": 0, "active_unconfirmed": 0,
+                "unconfirmed_final": 0, "not_delivered": 0, "by_category": empty_categories,
+                "commitments_count": 0}
     with open_store() as store:
         records = [_public(r, moment) for r in store.list(None, 100_000)]
     unconfirmed = [r for r in records if r["state"] in _UNCONFIRMED]
+    unconfirmed_final_count = sum(r["final"] for r in unconfirmed)
     # Two levels of acknowledgement, never summed into one "delivered" (representative, 26.09).
     stored = [r for r in records if r["state"] == "acknowledged" and r["ack_status"] == "received"]
     by_category = {cat: 0 for cat in OUTBOUND_CATEGORIES}
@@ -137,7 +139,8 @@ def summary(now: float | None = None) -> dict:
             "stored_not_processed": len(stored),
             "stored_not_processed_final": sum(r["final"] for r in stored),
             "unconfirmed": len(unconfirmed),
-            "unconfirmed_final": sum(r["final"] for r in unconfirmed),
+            "active_unconfirmed": len(unconfirmed) - unconfirmed_final_count,
+            "unconfirmed_final": unconfirmed_final_count,
             "not_delivered": sum(r["state"] == "publish_failed" for r in records),
             "by_category": by_category,
             "commitments_count": commitments_count}
@@ -178,3 +181,15 @@ async def republish(delivery_id: str) -> dict:
             event_id = await agent.republish_delivery(
                 store, delivery_id, resolve_recipient_relays=True)
         return {"republished_event_id": event_id, **_public(store.get(delivery_id))}
+
+
+def prune_expired(*, older_than_days: int = 2, archive_path: str | None = None) -> dict:
+    """Archive and remove expired unconfirmed/failed deliveries older than ``older_than_days``."""
+    if type(older_than_days) is not int or older_than_days < 2:
+        raise ValueError("older_than_days must be an integer >= 2 (at least the 48h recheck window)")
+    if not _journal_exists():
+        return {"archived": 0, "cutoff": time.time() - older_than_days * 86400, "archive_path": None}
+    before = time.time() - older_than_days * 86400
+    with open_store() as store:
+        return store.prune_expired(before=before, archive_path=archive_path)
+

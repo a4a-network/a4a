@@ -312,3 +312,54 @@ class OutboxStore:
             f"SELECT * FROM deliveries{where} ORDER BY created DESC LIMIT ?",
             (*params, limit))
         return [self._record(r) for r in rows.fetchall()]
+
+    def prune_expired(self, *, before: float, archive_path: Path | str | None = None) -> dict:
+        """Archive and remove unconfirmed/failed deliveries created before ``before``.
+
+        Never removes acknowledged deliveries or active deliveries still within their
+        recheck window (`created >= before`). Writes an append-safe JSONL archive file
+        before deleting rows from SQLite.
+        """
+        import json
+        cutoff = min(float(before), time.time() - RECHECK_GIVE_UP)
+        rows = self.db.execute(
+            "SELECT * FROM deliveries WHERE state IN ('dead_letter', 'interrupted', 'sending', 'publish_failed') "
+            "AND created < ? ORDER BY created ASC",
+            (cutoff,),
+        ).fetchall()
+        if archive_path is None:
+            archive = self.path.parent / f"outbox-archive-{int(time.time())}.jsonl"
+        else:
+            archive = Path(archive_path)
+        if archive.exists():
+            raise OutboxError(f"archive path already exists: {archive}")
+        records_to_archive = []
+        for row in rows:
+            rec = self._record(row)
+            envs = [
+                dict(r)
+                for r in self.db.execute(
+                    "SELECT event_id, envelope, published FROM envelopes WHERE delivery_id=? ORDER BY seq",
+                    (rec["delivery_id"],),
+                ).fetchall()
+            ]
+            rec["envelopes_full"] = envs
+            records_to_archive.append(rec)
+        with open(archive, "w", encoding="utf-8", newline="\n") as f:
+            for item in records_to_archive:
+                f.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        keyfile.harden_and_check(archive, force=True)
+        removed_ids = [r["delivery_id"] for r in records_to_archive]
+        if removed_ids:
+            with self._transaction():
+                for did in removed_ids:
+                    self.db.execute("DELETE FROM envelopes WHERE delivery_id=?", (did,))
+                    self.db.execute("DELETE FROM deliveries WHERE delivery_id=?", (did,))
+        return {
+            "archived": len(removed_ids),
+            "cutoff": cutoff,
+            "archive_path": str(archive),
+        }
+

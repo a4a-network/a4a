@@ -331,11 +331,18 @@ async def test_reception_mode_quarantine_digest_and_decisions(tmp_path, monkeypa
         assert "[Origin: owner_agent]" not in req1["preview"]
         assert "(marker removed)" in req1["preview"]
 
-        # Owner accepts Stranger 1 -> promoted to L1 (external_contact) and moved to main inbox
-        dec1 = inbox_runtime.quarantine_decide(req1["req_id"], "accept")
+        # Owner attempting to accept Stranger 1 without a label is refused
+        with pytest.raises(InboxError, match="Contact label is required"):
+            inbox_runtime.quarantine_decide(req1["req_id"], "accept")
+
+        # Owner accepts Stranger 1 with a label -> promoted to L1 (external_contact) and moved to main inbox
+        dec1 = inbox_runtime.quarantine_decide(
+            req1["req_id"], "accept", label="Stranger 1 (Integration Partner)"
+        )
         assert dec1["state"] == "accepted"
         assert dec1["trust_level"] == 1
         assert dec1["origin_label"] == "external_contact"
+        assert dec1["peer_label"] == "Stranger 1 (Integration Partner)"
         assert dec1["promoted_seq"] == 1
 
         # Owner blocks Stranger 2 -> added to blocked_senders
@@ -352,6 +359,8 @@ async def test_reception_mode_quarantine_digest_and_decisions(tmp_path, monkeypa
         assert claimed["message"]["from_pubkey"] == stranger1.pubkey
         assert claimed["message"]["trust_level"] == 1
         assert claimed["message"]["origin_label"] == "external_contact"
+        assert claimed["message"]["peer_label"] == "Stranger 1 (Integration Partner)"
+        assert "Contact: Stranger 1 (Integration Partner)." in claimed["message"]["content"]
         assert "owner_onboarding_prompt" in claimed["message"]
 
 
@@ -365,9 +374,16 @@ def test_official_relay_pool_interoperability_and_contact_labels(tmp_path, monke
     inbox_runtime.configure("session-ru", [], start_after=0)
     monkeypatch.setenv("A4A_RELAY", "wss://ru1.a4a.network")
 
-    # Official regional relay switch (eu1 <-> ru1) must NOT fail active_policy()
+    # Official regional relay switch (eu1 <-> ru1) must NOT fail active_policy(),
+    # and a single official relay is automatically expanded to at least 4 official nodes
     pol = inbox_runtime.active_policy()
     assert pol.relay == "wss://eu1.a4a.network"
+    assert len(pol.relays) >= 4
+    assert "wss://ru1.a4a.network" in pol.relays
+    assert "wss://ru2.a4a.network" in pol.relays
+    assert "wss://eu2.a4a.network" in pol.relays
+    # Private/custom relay is never expanded with public relays
+    assert inbox_runtime.expand_official_relay_pool(["ws://127.0.0.1:8080"]) == ("ws://127.0.0.1:8080",)
 
     # Switching to an unrelated non-A4A relay still fails closed
     monkeypatch.setenv("A4A_RELAY", "wss://untrusted.example.org")
@@ -431,5 +447,231 @@ async def test_closed_mode_retains_first_contact_in_quarantine_and_promotes_on_t
         assert claimed["state"] == "processing"
         assert claimed["message"]["from_pubkey"] == guest.pubkey
         assert claimed["message"]["peer_label"] == "New Colleague"
+        assert "Contact: New Colleague." in claimed["message"]["content"]
+
+
+async def test_mandatory_label_on_contact_and_invitation_rejects_bare_keys_and_secrets(
+    tmp_path, monkeypatch
+):
+    async with FakeRelay() as relay:
+        monkeypatch.setenv("A4A_RELAY", relay.url)
+        monkeypatch.setenv("A4A_MANDATE_AUTO", "0")
+
+        home = tmp_path / "label_guard_agent"
+        _switch_home(monkeypatch, home)
+        identity.load_or_create_identity()
+        inbox_runtime.configure("label-session", [], start_after=0)
+
+        peer_keys = Keys()
+
+        # 1. Creating an invitation without --label is refused
+        with pytest.raises(InboxError, match="Invitation label is required"):
+            await inbox_runtime.create_invitation(ttl_seconds=3600, label="")
+
+        # 2. Adding a new contact without --label is refused
+        with pytest.raises(InboxError, match="Contact label is required"):
+            inbox_runtime.set_peer_trust(peer_keys.pubkey_hex, level=1)
+
+        with pytest.raises(InboxError, match="Contact label is required"):
+            inbox_runtime.set_contact(peer_keys.apub, label="")
+
+        # 3. Passing a bare hex key, bare apub/npub, private key, or invite #secret as a label is rejected
+        with pytest.raises(InboxError, match="not a raw hex or bech32 key"):
+            inbox_runtime.set_contact(peer_keys.apub, label=peer_keys.pubkey_hex)
+
+        with pytest.raises(InboxError, match="not a raw hex or bech32 key"):
+            inbox_runtime.set_contact(peer_keys.apub, label=peer_keys.apub)
+
+        with pytest.raises(InboxError, match="invitation URL or #secret"):
+            inbox_runtime.set_contact(
+                peer_keys.apub,
+                label="https://a4a.network/i/abcdefghijklmnopqrstuv#1234567890abcdefghijkl",
+            )
+
+
+async def test_contacts_tool_and_known_roster_resolution(tmp_path, monkeypatch):
+    import json
+
+    home = tmp_path / "roster_agent"
+    _switch_home(monkeypatch, home)
+    monkeypatch.setenv("A4A_RELAY", "ws://127.0.0.1:1")
+    identity.load_or_create_identity()
+
+    known_peer = Keys()
+    roster_file = tmp_path / "known-contacts.json"
+    roster_file.write_text(
+        json.dumps({
+            "schema": "a4a-known-contacts-v1",
+            "contacts": {
+                known_peer.pubkey_hex: {
+                    "mailbox": "alpha-gemini",
+                    "project": "Alpha Core",
+                    "role": "Lead Protocol Developer",
+                    "label": "alpha-gemini — Alpha Core: Lead Protocol Developer",
+                    "origin": "own_developer",
+                    "default_level": 2,
+                }
+            },
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("A4A_KNOWN_CONTACTS_FILE", str(roster_file))
+
+    inbox_runtime.configure("roster-session", [known_peer.pubkey_hex], start_after=0)
+
+    # Even before explicit set-trust, peer_policy resolves the known contact's label, project, and role
+    pol = inbox_runtime.active_policy()
+    info = pol.peer_policy(known_peer.pubkey_hex)
+    assert info["label"] == "alpha-gemini — Alpha Core: Lead Protocol Developer"
+    assert info["project"] == "Alpha Core"
+    assert info["role"] == "Lead Protocol Developer"
+
+    # Seed writes the label into inbox-policy.json
+    seeded = await server.a4a_contacts(action="seed")
+    assert seeded["seeded"] == 1
+
+    # Search finds the contact by project or role
+    found = await server.a4a_contacts(action="search", query="Alpha Lead")
+    assert found["count"] == 1
+    assert found["contacts"][0]["pubkey"] == known_peer.pubkey_hex
+
+
+async def test_encrypted_address_book_relay_sync_pull_merge_and_security_guards(
+    tmp_path, monkeypatch
+):
+    from a4a import nip44, types
+
+    async with FakeRelay() as relay:
+        monkeypatch.setenv("A4A_RELAY", relay.url)
+        monkeypatch.setenv("A4A_MANDATE_AUTO", "0")
+
+        home_1 = tmp_path / "agent_node_1"
+        _switch_home(monkeypatch, home_1)
+        owner_keys = identity.load_or_create_owner_identity()
+        agent_keys = identity.load_or_create_identity()
+        inbox_runtime.configure("sync-session-1", [], start_after=0)
+
+        colleague_1 = Keys()
+        colleague_2 = Keys()
+        spammer = Keys()
+        inbox_runtime.set_contact(
+            colleague_1.apub,
+            label="Elena (Frontend Engineer)",
+            level=2,
+            origin="own_developer",
+        )
+        inbox_runtime.set_contact(
+            colleague_2.apub,
+            label="Max (QA Lead)",
+            level=1,
+            origin="external_contact",
+        )
+
+        # GUARD B: Attempting to publish an address book to relays WITHOUT a valid owner mandate (kind 31000) is refused!
+        with pytest.raises(InboxError, match="valid owner mandate"):
+            await inbox_runtime.sync_address_book_to_relays()
+        assert not any(
+            ev.get("kind") == types.KIND_PRIVATE_MESSAGE
+            and ["d", inbox_runtime.ADDRESS_BOOK_D_TAG] in ev.get("tags", [])
+            for ev in relay.events
+        )
+
+        # Issue a valid owner mandate (kind 31000) on the relay
+        async with Agent([relay.url], keys=agent_keys) as ag:
+            await ag.ensure_registered(owner_keys, name="Node 1 Agent", days=30)
+
+        # Now sync succeeds and publishes a single NIP-44 encrypted replaceable event (kind 31033, d="a4a:address_book")
+        sync1 = await inbox_runtime.sync_address_book_to_relays()
+        assert sync1["state"] == "synced"
+        assert sync1["revision"] == 1
+        assert sync1["contacts_count"] == 2
+        assert sync1["encrypted_bytes"] <= inbox_runtime.MAX_ADDRESS_BOOK_BYTES
+
+        book_events = [
+            ev for ev in relay.events
+            if ev.get("kind") == types.KIND_PRIVATE_MESSAGE
+            and ["d", inbox_runtime.ADDRESS_BOOK_D_TAG] in ev.get("tags", [])
+        ]
+        assert len(book_events) == 1
+        # Ciphertext on relay must not leak plaintext names or contact keys
+        assert "Elena" not in book_events[0]["content"]
+        assert colleague_1.pubkey_hex not in book_events[0]["content"]
+
+        # GUARD A: Foreign key substitution / forgery attack!
+        # Attacker crafts a kind-31033 d="a4a:address_book" event claiming to be for agent_keys
+        attacker_keys = Keys()
+        forged_doc = {
+            "schema": inbox_runtime.ADDRESS_BOOK_SCHEMA,
+            "agent_pubkey": agent_keys.pubkey_hex,
+            "revision": 999,
+            "updated_at": int(time.time()) + 3600,
+            "contacts": {
+                attacker_keys.pubkey_hex: {
+                    "apub": attacker_keys.apub,
+                    "label": "Forged Owner Representative",
+                    "level": 2,
+                    "origin": "owner_agent",
+                    "status": "active",
+                    "updated_at": int(time.time()) + 3600,
+                }
+            },
+        }
+        import json
+        forged_cipher = nip44.encrypt(
+            json.dumps(forged_doc),
+            attacker_keys.privkey_hex,
+            agent_keys.pubkey_hex,
+        )
+        forged_ev = Event(
+            kind=types.KIND_PRIVATE_MESSAGE,
+            pubkey=attacker_keys.pubkey_hex,
+            created_at=int(time.time()) + 100,
+            tags=[["d", inbox_runtime.ADDRESS_BOOK_D_TAG], ["p", agent_keys.pubkey_hex]],
+            content=forged_cipher,
+        ).sign(attacker_keys)
+
+        # Direct verification of foreign-signed event is rejected immediately
+        with pytest.raises(InboxError, match="Address book substitution rejected"):
+            inbox_runtime.verify_and_decode_address_book_event(
+                forged_ev,
+                expected_pubkey=agent_keys.pubkey_hex,
+                privkey_hex=agent_keys.privkey_hex,
+            )
+
+        # Even if injected into relay storage with tampered pubkey, signature verification rejects it
+        tampered_raw = forged_ev.model_dump()
+        tampered_raw["pubkey"] = agent_keys.pubkey_hex
+        with pytest.raises(InboxError, match="invalid Schnorr signature"):
+            inbox_runtime.verify_and_decode_address_book_event(
+                Event.model_validate(tampered_raw),
+                expected_pubkey=agent_keys.pubkey_hex,
+                privkey_hex=agent_keys.privkey_hex,
+            )
+
+        # GUARD D: Pull-and-Merge & Anti-Wipe Guard on a freshly recreated container (home_2) with the same identity!
+        home_2 = tmp_path / "agent_node_2_recreated"
+        _switch_home(monkeypatch, home_2)
+        home_2.mkdir(parents=True, exist_ok=True)
+        (home_2 / "identity.json").write_bytes((home_1 / "identity.json").read_bytes())
+        from a4a import keyfile
+        keyfile.harden_and_check(home_2 / "identity.json", force=True)
+
+        # Container starts with an EMPTY allowed_peers list
+        inbox_runtime.configure("sync-session-2", [], start_after=0)
+        assert inbox_runtime.load_policy().allowed_peers == frozenset()
+
+        # Running sync_address_book_to_relays pulls first, restores both contacts + labels instead of wiping the relay!
+        sync2 = await inbox_runtime.sync_address_book_to_relays()
+        assert sync2["state"] == "synced"
+        assert sync2["pull"]["restored_contacts"] == 2
+        assert sync2["revision"] == 2
+
+        pol_restored = inbox_runtime.load_policy()
+        assert pol_restored.allowed_peers == frozenset({colleague_1.pubkey_hex, colleague_2.pubkey_hex})
+        assert pol_restored.peer_policy(colleague_1.pubkey_hex)["label"] == "Elena (Frontend Engineer)"
+        assert pol_restored.peer_policy(colleague_1.pubkey_hex)["level"] == 2
+        assert pol_restored.peer_policy(colleague_2.pubkey_hex)["label"] == "Max (QA Lead)"
+        assert pol_restored.peer_policy(colleague_2.pubkey_hex)["level"] == 1
+
 
 

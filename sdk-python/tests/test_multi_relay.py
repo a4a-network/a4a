@@ -223,3 +223,51 @@ async def test_reused_mandate_reaches_newly_added_node_without_reissuing():
             assert intent_id in {e["id"] for e in node.events}
 
 
+async def test_per_node_circuit_breaker_bypasses_stalling_or_full_node_and_recovers():
+    """A stalling or disk-full relay trips its per-node circuit breaker so subsequent
+    fan-out reads and writes complete immediately without waiting for timeouts, then
+    recovers automatically after the cooldown window."""
+    import asyncio
+    import time
+    from a4a.event import Event
+
+    async with FakeRelay(respond_eose=False) as hung, FakeRelay() as healthy:
+        async with Agent([hung.url, healthy.url]) as agent:
+            agent.relay.read_deadline = 0.25
+            agent.relay.publish_deadline = 0.25
+            agent.relay.breaker_cooldown = 5.0
+
+            # First read waits read_deadline (0.25s) and trips hung's circuit breaker
+            await agent.relay.query({"kinds": [1]}, max_events=10)
+            status = agent.relay.breaker_status()
+            assert status[hung.url]["state"] == "open"
+            assert status[healthy.url]["state"] == "closed"
+
+            # Second read bypasses hung immediately (< 0.08s instead of 0.25s)
+            t0 = time.monotonic()
+            res = await agent.relay.query_bounded({"kinds": [1]}, max_events=10)
+            elapsed = time.monotonic() - t0
+            assert elapsed < 0.12, f"open circuit breaker did not bypass hung node ({elapsed:.3f}s)"
+            assert res.relays_responded == 1
+
+            # Storage-full rejection also trips the circuit breaker and recovers after cooldown
+            hung.respond_eose = True
+            hung.reject_reason = "error: database or disk is full (cannot accept events)"
+            agent.relay.breaker_cooldown = 0.05
+            await asyncio.sleep(0.06)
+
+            ev1 = Event(kind=1, content="breaker-test-1").sign(agent.keys)
+            accepted1 = await agent.relay.publish(ev1, replay_on_reconnect=False)
+            assert accepted1 == 1
+            assert agent.relay.breaker_status()[hung.url]["state"] == "open"
+
+            # Clear disk-full condition and wait for 0.05s cooldown -> half-open probe succeeds and closes breaker
+            hung.reject_reason = None
+            await asyncio.sleep(0.06)
+            ev2 = Event(kind=1, content="breaker-test-2").sign(agent.keys)
+            accepted2 = await agent.relay.publish(ev2, replay_on_reconnect=False)
+            assert accepted2 == 2
+            assert agent.relay.breaker_status()[hung.url]["state"] == "closed"
+
+
+

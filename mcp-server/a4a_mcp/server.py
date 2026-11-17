@@ -79,27 +79,57 @@ def _relay_urls() -> list[str]:
     configured = [part.strip() for part in raw.split(",")]
     configured = [u for u in configured if u]
     first = _relay_url()
-    if not configured or configured[0] != first:
+    if configured and configured[0] != first:
         # `_relay_url` was replaced. The replacement address REPLACES the set rather
         # than leading it. Otherwise only the first connection would be redirected,
         # while the remaining connections used environment addresses. In tests that
         # contacted a real second node alongside a fake first node (review finding
         # FAN-004).
         return [first]
-    return [first, *[u for u in configured[1:] if u != first]]
+    out = [first, *[u for u in configured[1:] if u != first]]
+    if len(out) <= 1:
+        try:
+            policy_path = identity.IDENTITY_DIR / "inbox-policy.json"
+            if policy_path.is_file() and not policy_path.is_symlink():
+                data = json.loads(policy_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    raw_relays = data.get("relays")
+                    if isinstance(raw_relays, list):
+                        pol_relays = [
+                            str(u).strip() for u in raw_relays
+                            if isinstance(u, str) and str(u).strip()
+                        ]
+                        if pol_relays and pol_relays[0] == first:
+                            return [first, *[u for u in pol_relays[1:] if u != first]]
+        except Exception:
+            pass
+    return out
 
 
 def _relay_url() -> str:
     """Return the first node, also used as the stable inbox-policy and journal key."""
-    first = os.environ.get("A4A_RELAY", DEFAULT_RELAY).split(",")[0].strip()
-    if not first:
-        raise ValueError("A4A_RELAY is empty; at least one node address is required")
-    return first
+    if "A4A_RELAY" in os.environ:
+        first = os.environ["A4A_RELAY"].split(",")[0].strip()
+        if not first:
+            raise ValueError("A4A_RELAY is empty; at least one node address is required")
+        return first
+    try:
+        policy_path = identity.IDENTITY_DIR / "inbox-policy.json"
+        if policy_path.is_file() and not policy_path.is_symlink():
+            data = json.loads(policy_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                policy_relay = str(data.get("relay") or "").strip()
+                if policy_relay:
+                    return policy_relay
+    except Exception:
+        pass
+    return DEFAULT_RELAY
 
 
 def _make_agent() -> Agent:
     keys = load_or_create_identity()
-    return Agent(_relay_urls(), keys=keys,
+    urls = list(inbox_runtime.expand_official_relay_pool(_relay_urls()))
+    return Agent(urls, keys=keys,
                  public_journal_dir=identity.IDENTITY_DIR / "publications" / keys.pubkey_hex)
 
 
@@ -273,11 +303,14 @@ def _unreachable_text(e: RelayUnreachable) -> str:
     not our guess.
     """
     _log_refusal("relay-unreachable")
+    urls = _relay_urls()
+    warn = inbox_runtime.relay_redundancy_warning(urls)
+    suffix = f"\n\n{warn}" if warn else ""
     return (f"The A4A node at {_relay_url()} is unreachable: {e}. RETRYING WILL NOT "
             f"HELP because the cause is outside your control: the address is wrong, "
             f"the node is not running, or the network is unavailable. Tell the user and "
             f"continue without the A4A network; return to network tools only after the "
-            f"user confirms connectivity has been restored.")
+            f"user confirms connectivity has been restored.{suffix}")
 
 
 log = logging.getLogger("a4a_mcp")
@@ -685,13 +718,18 @@ async def a4a_my_address() -> str:
         This call does not verify the network, receiver, or agent wake-up path.
     """
     keys = load_or_create_identity()
+    urls = _relay_urls()
+    relays_line = f"  relays:       {', '.join(urls)}\n" if len(urls) > 1 else ""
+    warn = inbox_runtime.relay_redundancy_warning(urls)
+    warn_line = f"\n{warn}" if warn else ""
     return (
         f"My A4A address:\n"
         f"  pubkey (hex): {keys.pubkey_hex}\n"
         f"  apub:         {keys.apub}\n"
         f"  relay:        {_relay_url()}\n"
+        f"{relays_line}"
         "This is a local address; it does not confirm relay connectivity or automatic "
-        "message delivery. For diagnostics, call a4a_inbox_status."
+        f"message delivery. For diagnostics, call a4a_inbox_status.{warn_line}"
     )
 
 
@@ -1610,9 +1648,72 @@ async def a4a_send_private(to_pubkey: str, text: str,
 
 
 # One initial attempt plus three retries, five seconds each: about twenty seconds before
-# `dead_letter`. Module constants so tests need not wait that long.
-_DELIVER_RETRIES = 3
-_DELIVER_ACK_TIMEOUT = 5.0
+# `dead_letter`. Module constants so tests need not wait that long; `A4A_DELIVER_ACK_TIMEOUT`
+# and `A4A_DELIVER_RETRIES` (or explicit tool/CLI arguments) override the defaults at runtime.
+_DEFAULT_DELIVER_RETRIES = 3
+_DEFAULT_DELIVER_ACK_TIMEOUT = 5.0
+_DELIVER_RETRIES = _DEFAULT_DELIVER_RETRIES
+_DELIVER_ACK_TIMEOUT = _DEFAULT_DELIVER_ACK_TIMEOUT
+
+
+def _resolve_deliver_ack_timeout(explicit: float | None = None) -> float:
+    """Resolve per-attempt ACK wait timeout in seconds (default 5.0, max 300.0)."""
+    if explicit is not None:
+        if isinstance(explicit, bool):
+            raise InboxError("ack_timeout must be a number of seconds > 0 and <= 300")
+        try:
+            value = float(explicit)
+        except (TypeError, ValueError) as exc:
+            raise InboxError(
+                f"ack_timeout must be a number of seconds > 0 and <= 300; got {explicit!r}"
+            ) from exc
+        if value <= 0 or value > 300.0:
+            raise InboxError("ack_timeout must be > 0 and <= 300 seconds")
+        return value
+    if _DELIVER_ACK_TIMEOUT != _DEFAULT_DELIVER_ACK_TIMEOUT:
+        return float(_DELIVER_ACK_TIMEOUT)
+    raw = os.environ.get("A4A_DELIVER_ACK_TIMEOUT", "").strip()
+    if not raw:
+        return float(_DELIVER_ACK_TIMEOUT)
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise InboxError(
+            f"A4A_DELIVER_ACK_TIMEOUT must be a number of seconds > 0 and <= 300; got {raw!r}"
+        ) from exc
+    if value <= 0 or value > 300.0:
+        raise InboxError("A4A_DELIVER_ACK_TIMEOUT must be > 0 and <= 300 seconds")
+    return value
+
+
+def _resolve_deliver_retries(explicit: int | None = None) -> int:
+    """Resolve retry count after the initial ACK wait (default 3, range 0..20)."""
+    if explicit is not None:
+        if isinstance(explicit, bool):
+            raise InboxError("retries must be an integer between 0 and 20")
+        try:
+            value = int(explicit)
+        except (TypeError, ValueError) as exc:
+            raise InboxError(
+                f"retries must be an integer between 0 and 20; got {explicit!r}"
+            ) from exc
+        if value < 0 or value > 20:
+            raise InboxError("retries must be between 0 and 20")
+        return value
+    if _DELIVER_RETRIES != _DEFAULT_DELIVER_RETRIES:
+        return int(_DELIVER_RETRIES)
+    raw = os.environ.get("A4A_DELIVER_RETRIES", "").strip()
+    if not raw:
+        return int(_DELIVER_RETRIES)
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise InboxError(
+            f"A4A_DELIVER_RETRIES must be an integer between 0 and 20; got {raw!r}"
+        ) from exc
+    if value < 0 or value > 20:
+        raise InboxError("A4A_DELIVER_RETRIES must be between 0 and 20")
+    return value
 
 
 #: From this local date a4a_deliver asks whether a letter is a reply (design
@@ -1635,7 +1736,9 @@ async def a4a_deliver(to_pubkey: str, text: str,
                       category: str = "routine_dev",
                       topic: str = "",
                       owner_approval_token: str = "",
-                      commitment_note: str = "") -> str:
+                      commitment_note: str = "",
+                      ack_timeout: float | None = None,
+                      retries: int | None = None) -> str:
     """Deliver a private message and wait for the recipient's signed ACK.
 
     The message and acknowledgement use gift-wrap envelopes. Recipient published inbox
@@ -1661,6 +1764,10 @@ async def a4a_deliver(to_pubkey: str, text: str,
         owner_approval_token: Single-use permit token issued by the owner for L1
             contacts or restricted categories.
         commitment_note: Optional short non-secret note for the outbound registry.
+        ack_timeout: Optional per-attempt ACK wait timeout in seconds (0 < s <= 300;
+            defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0).
+        retries: Optional retry count after the initial ACK wait (0..20; defaults to
+            A4A_DELIVER_RETRIES or 3).
 
     Every delivery is also written to the local delivery journal, so a dead_letter
     is not forgotten: a4a_delivery_status reports it later and looks for an ACK that
@@ -1688,6 +1795,8 @@ async def a4a_deliver(to_pubkey: str, text: str,
         topic=topic or None,
         owner_approval_token=owner_approval_token or None,
         commitment_note=commitment_note or None,
+        ack_timeout=ack_timeout,
+        retries=retries,
     )
 
 
@@ -1698,7 +1807,9 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
                              topic: str | None = None,
                              owner_approval_token: str | None = None,
                              owner_approved: bool = False,
-                             commitment_note: str | None = None) -> str:
+                             commitment_note: str | None = None,
+                             ack_timeout: float | None = None,
+                             retries: int | None = None) -> str:
     """The one reliable-delivery path shared by a4a_deliver and a4a_reply.
 
     A reply must pass exactly the checks a new letter passes (owner-allowed peer,
@@ -1708,6 +1819,8 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
     from . import outbox_runtime
     if len(text.encode("utf-8")) > 32 * 1024:
         return "Private message exceeds 32 KiB; nothing was sent."
+    resolved_timeout = _resolve_deliver_ack_timeout(ack_timeout)
+    resolved_retries = _resolve_deliver_retries(retries)
     auth = inbox_runtime.authorize_outbound_send(
         to_pubkey,
         text,
@@ -1727,8 +1840,8 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
         )
         async with _mandated() as agent:
             result = await agent.deliver_with_ack(
-                to_pubkey, text, retries=_DELIVER_RETRIES,
-                ack_timeout=_DELIVER_ACK_TIMEOUT, poll_interval=0.5,
+                to_pubkey, text, retries=resolved_retries,
+                ack_timeout=resolved_timeout, poll_interval=0.5,
                 resolve_recipient_relays=True, private=True, outbox=journal,
                 conversation_id=conversation_id, reply_to=reply_to)
     if result["status"] == "acknowledged":
@@ -1757,7 +1870,9 @@ async def a4a_reply(seq: int, text: str,
                     category: str = "routine_dev",
                     topic: str = "",
                     owner_approval_token: str = "",
-                    commitment_note: str = "") -> str:
+                    commitment_note: str = "",
+                    ack_timeout: float | None = None,
+                    retries: int | None = None) -> str:
     """Answer a received letter; the answer carries a signed reference to it.
 
     `seq` is the letter's number in this mailbox, as a4a_inbox_next showed it. The
@@ -1777,6 +1892,10 @@ async def a4a_reply(seq: int, text: str,
         owner_approval_token: Single-use permit token issued by the owner for L1
             contacts or restricted categories.
         commitment_note: Optional short non-secret note for the outbound registry.
+        ack_timeout: Optional per-attempt ACK wait timeout in seconds (0 < s <= 300;
+            defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0).
+        retries: Optional retry count after the initial ACK wait (0..20; defaults to
+            A4A_DELIVER_RETRIES or 3).
 
     Returns:
         The a4a_deliver result for the answer, followed by the letter it is bound to.
@@ -1794,6 +1913,8 @@ async def a4a_reply(seq: int, text: str,
         topic=topic or None,
         owner_approval_token=owner_approval_token or None,
         commitment_note=commitment_note or None,
+        ack_timeout=ack_timeout,
+        retries=retries,
     )
     if not outcome.startswith("Private delivery:"):
         return outcome
@@ -1878,8 +1999,13 @@ async def a4a_read_private() -> str:
         # surrogate raise here even though the renderer would safely hide it.
         if callable(peer_policy_fn):
             p_info = peer_policy_fn(m["from_pubkey"], is_owner_agent=("sender_identity" in m))
+            if p_info.get("label"):
+                heading += f" contact={p_info['label']!r}"
             content = inbox_runtime.shown_content(
-                m, origin_label=p_info["origin"], trust_level=p_info["level"]
+                m,
+                origin_label=p_info["origin"],
+                trust_level=p_info["level"],
+                peer_label=p_info.get("label"),
             )
         else:
             content = inbox_runtime.shown_content(m)
@@ -1894,6 +2020,62 @@ async def a4a_read_private() -> str:
                      "not mark them processed; use a4a_inbox_next or a4a_dialogue_open "
                      "when the owner has enabled dialogue mode.")
     return "\n".join(lines)
+
+
+@mcp.tool()
+async def a4a_contacts(
+    action: str = "list",
+    query: str = "",
+    peer: str = "",
+    label: str = "",
+    trust_level: int = 0,
+    origin: str = "",
+    include_known: bool = False,
+) -> dict:
+    """View, search, label, or synchronize this mailbox's rich address book.
+
+    Every contact in A4A must have a human-readable label (name, project, and role).
+    Incoming letters automatically display `Contact: <label>.` in their header.
+
+    Args:
+        action: One of:
+            - "list": return all contacts in this mailbox's address book.
+            - "search": search contacts by name, project, role, mailbox, pubkey, or apub (`query`).
+            - "set": add or update a contact's label and trust level (`peer`, `label` required).
+            - "seed": populate missing labels from the local known-contacts roster.
+            - "pull": fetch, verify, decrypt, and merge the encrypted address book from relays.
+            - "sync": pull-and-merge from relays, then publish the NIP-44 encrypted address
+              book (`kind 31033`, `d="a4a:address_book"`, max 64 KiB) under a valid owner mandate.
+        query: Search substring for `action="search"`.
+        peer: Peer 64-hex or `apub1...` address for `action="set"`.
+        label: Mandatory human-readable description (name, project, role, <= 160 chars) for `action="set"`.
+        trust_level: Optional trust level (1=manual, 2=autonomous routine, 3=scoped) for `action="set"`.
+        origin: Optional origin label (`external_contact`, `own_developer`, `scoped_partner`, `owner_agent`).
+        include_known: Include known roster contacts not yet in `allowed_peers` when listing or searching.
+    """
+    act = (action or "list").strip().lower()
+    try:
+        if act == "list":
+            return inbox_runtime.list_contacts(include_known=bool(include_known))
+        if act == "search":
+            return inbox_runtime.search_contacts(query, include_known=True if include_known is None else bool(include_known))
+        if act == "set":
+            if not peer.strip():
+                return {"error": "peer (64-hex or apub1...) is required for action='set'."}
+            lvl = int(trust_level) if trust_level in (1, 2, 3) else None
+            orig = origin.strip() if origin.strip() else None
+            return inbox_runtime.set_contact(peer.strip(), label=label, level=lvl, origin=orig)
+        if act == "seed":
+            return inbox_runtime.seed_known_contacts(add_all=False)
+        if act == "pull":
+            return await inbox_runtime.pull_address_book_from_relays()
+        if act == "sync":
+            return await inbox_runtime.sync_address_book_to_relays(pull_first=True)
+        return {
+            "error": f"Unknown action {action!r}; expected one of: list, search, set, seed, pull, sync."
+        }
+    except Exception as exc:
+        return {"error": str(exc)}
 
 
 @mcp.tool()
@@ -2174,15 +2356,17 @@ async def a4a_check_authority(event_id: str) -> str:
 
 @mcp.tool()
 async def a4a_encrypt_file(path: str) -> str:
-    """Encrypt a file for A4A transfer (step 1 of 3).
+    """Encrypt a file for A4A transfer before calling a4a_send_file.
 
     Writes a `<path>.a4a` blob beside the file using ChaCha20-Poly1305 and a random
     per-file key. The key is stored LOCALLY in ~/.a4a/file-keys.json and is NOT shown
-    in the response. Only this machine can send the blob because step 3 reads that key.
+    in the response. Only this machine can send the blob because a4a_send_file reads that key.
 
-    Next, upload the blob to storage of your choice (https, ipfs, or ar; the SDK does
-    not upload it). For content-addressed storage, use the returned sha256. Then call
-    a4a_send_file(to_pubkey, blob_path, url, name, mime).
+    Next, call a4a_send_file(to_pubkey, blob_path) with an empty url to upload through
+    the gateway configured by A4A_FILE_GATEWAY and send the encrypted reference.
+    Without a configured gateway, upload the encrypted blob separately and pass its
+    https://, ipfs://, or ar:// location as url. Recipient clients may restrict which
+    locations they can fetch; arbitrary external locations are not automatically opened.
 
     Args:
         path: Source file path.
@@ -2207,18 +2391,21 @@ async def a4a_encrypt_file(path: str) -> str:
     return (f"Blob written: {blob_path}\n"
             f"sha256: {sha}\n"
             f"blob size: {len(blob)} bytes (source file {len(data)} bytes)\n"
-            f"The key is stored locally and is not displayed. Upload the blob yourself; "
-            f"A4A provides no storage. Use any unauthenticated https host, object storage, "
-            f"IPFS via `ipfs add` → ipfs://CID, or Arweave → ar://. Then call "
-            f"a4a_send_file(to_pubkey, blob_path, url, name, mime). The blob is encrypted, "
-            f"so the storage provider sees only its size.")
+            f"The key is stored locally and is not displayed. Next call "
+            f"a4a_send_file(to_pubkey, blob_path) with url empty to upload through "
+            f"A4A_FILE_GATEWAY and send the encrypted reference. If no gateway is "
+            f"configured, arrange storage for the encrypted blob and pass its location "
+            f"as url; confirm that the recipient supports that storage. The storage "
+            f"provider cannot read the encrypted file contents.")
 
 
 @mcp.tool()
 @_relay_errors
 async def a4a_send_file(to_pubkey: str, blob_path: str, url: str = "", name: str = "",
                         mime: str = "") -> str:
-    """Send an encrypted-file reference (step 3 of 3, after uploading the blob).
+    """Upload through the configured gateway and send an encrypted-file reference.
+
+    With an explicit url, the encrypted blob must already be stored at that location.
 
     The key is loaded from local storage by blob sha256 and deleted after successful
     sending. The same blob cannot be sent again; re-encrypt the source file. The URL,

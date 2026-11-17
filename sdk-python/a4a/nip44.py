@@ -1,6 +1,6 @@
-"""A4A E2EE v2 end-to-end encryption for event content.
+"""NIP-44 v2 end-to-end encryption for event content.
 
-Implements A4A E2EE v2: secp256k1 ECDH using the shared point's x-coordinate
+Implements version 2 of NIP-44: secp256k1 ECDH using the shared point's x-coordinate
 WITHOUT additional hashing. This differs critically from `coincurve.PrivateKey.ecdh`,
 which returns sha256(compressed_pubkey); here `PublicKey.multiply` computes the shared
 point and its raw x-coordinate is used. HKDF extract/expand (HMAC-SHA256) derives the
@@ -8,12 +8,13 @@ conversation and per-message keys, followed by custom power-of-two padding, ChaC
 (RFC 8439, counter=0), and HMAC-SHA256 over `nonce || ciphertext` (encrypt-then-MAC).
 Payload format: base64(0x02 || nonce (32B) || ciphertext || mac (32B)).
 
-Correctness is checked against the canonical E2EE v2 test vectors
-(`nip44_vectors.json`, SHA-256 269ed0f6...5040); see tests/test_nip44.py.
+Correctness is checked against the official NIP-44 vectors from nostr-protocol/nips
+(`44.md`, "Tests and code" → paulmillr/nip44 `nip44.vectors.json`, SHA-256
+269ed0f6...5040); see tests/test_nip44.py.
 
-Metadata privacy: E2EE v2 hides only event `content`. Without a sealed envelope, the relay and
+Metadata privacy: NIP-44 hides only event `content`. Without gift wrap, the relay and
 every observer can still see that pubkey A contacted pubkey B through the author and
-`p` tag. A4A Sealed Envelope is implemented separately in `a4a.giftwrap` and enabled by
+`p` tag. NIP-59 gift wrap is implemented separately in `a4a.giftwrap` and enabled by
 default in `Agent.send_private_message(..., wrap=True)`. It hides the sender, while
 recipient, envelope time, and envelope size remain visible.
 """

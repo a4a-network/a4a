@@ -526,10 +526,11 @@ class Agent:
     def _intent_matches(intent: types.Intent, category, intent_type, language) -> bool:
         """Validate intent fields client-side.
 
-        Generic relays neither index nor filter multi-character tags
-        (`#category`, `#intent_type`, `#language`), so they silently ignore the server
-        filter from `_intent_filter` and return every kind-31002 event. The filter is
-        still sent because it is harmless and works on A4A relays that index those tags.
+        nostr-rs-relay neither indexes nor filters multi-character tags
+        (`#category`, `#intent_type`, `#language`), so it silently ignores the server
+        filter from `_intent_filter` and returns every kind-31002 event. The filter is
+        still sent because it is harmless and will become effective when a relay
+        gains support for those tags.
         """
         if category and intent.category != category:
             return False
@@ -1994,16 +1995,22 @@ class Agent:
         return outbox.get(delivery_id)
 
     async def recheck_due(self, outbox, *, now: float | None = None,
-                          resolve_recipient_relays: bool = False, limit: int = 20) -> dict:
+                          resolve_recipient_relays: bool = False, limit: int = 20,
+                          auto_republish: bool = True,
+                          max_auto_republish: int = 2) -> dict:
         """Recheck every journaled delivery whose next automatic check is due.
 
         Meant for an always-on loop (the inbox receiver calls it on its ticks), so a
         dead_letter heals itself when a late ACK appears and a `received` receipt is
         upgraded to the final word - without the agent remembering a manual command.
+        When ``auto_republish`` is True, an unacknowledged ``dead_letter`` or
+        ``interrupted`` delivery with a stored envelope is also republished automatically
+        (up to ``max_auto_republish`` times) so transient relay or recipient-relay gaps
+        heal without manual ``outbox-republish``.
         Returns counts; one delivery's relay failure does not stop the others.
         """
         now = time.time() if now is None else now
-        checked = acknowledged = 0
+        checked = acknowledged = republished = 0
         for delivery_id in outbox.due_for_recheck(now, limit=limit):
             before = outbox.get(delivery_id)
             try:
@@ -2012,12 +2019,27 @@ class Agent:
             except RelayError as error:
                 log.warning("automatic recheck of %s could not ask: %s", delivery_id, error)
                 after = before
+            if (auto_republish
+                    and after is not None
+                    and after["state"] in ("dead_letter", "interrupted")
+                    and int(after.get("republished", 0)) < max_auto_republish
+                    and outbox.latest_envelope(delivery_id) is not None):
+                try:
+                    await self.republish_delivery(
+                        outbox, delivery_id,
+                        resolve_recipient_relays=resolve_recipient_relays,
+                        max_republish=max(5, max_auto_republish),
+                    )
+                    republished += 1
+                    after = outbox.get(delivery_id) or after
+                except (RelayError, ValueError) as error:
+                    log.warning("automatic republish of %s did not complete: %s", delivery_id, error)
             outbox.mark_rechecked(delivery_id, now)
             checked += 1
             if (after["state"] == "acknowledged"
                     and (before["state"], before["ack_status"]) != ("acknowledged", after["ack_status"])):
                 acknowledged += 1
-        return {"checked": checked, "acknowledged": acknowledged}
+        return {"checked": checked, "acknowledged": acknowledged, "republished": republished}
 
     async def republish_delivery(self, outbox, delivery_id: str, *,
                                  resolve_recipient_relays: bool = False,

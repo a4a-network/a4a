@@ -1,4 +1,4 @@
-"""A4A event cryptography: event IDs (SHA-256) and Schnorr signatures (BIP-340)."""
+"""NIP-01 cryptography: event ids (SHA-256) and Schnorr signatures (BIP-340)."""
 import hashlib
 import json
 
@@ -12,7 +12,7 @@ def compute_event_id(pubkey: str, created_at: int, kind: int,
                          separators=(",", ":"), ensure_ascii=False)
     # Keep this low-level hash helper total for escaped lone-surrogate fixtures.
     # It can hash those nonstandard bytes, and a signature over that hash can verify.
-    # That does not make the strings valid A4A Unicode: Event.sign rejects them
+    # That does not make the strings valid Nostr Unicode: Event.sign rejects them
     # and Event.verify returns False before computing the hash. Using surrogatepass
     # here avoids an encoding exception for callers inspecting malformed wire data.
     return hashlib.sha256(payload.encode("utf-8", "surrogatepass")).hexdigest()
