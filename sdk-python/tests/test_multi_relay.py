@@ -270,4 +270,70 @@ async def test_per_node_circuit_breaker_bypasses_stalling_or_full_node_and_recov
             assert agent.relay.breaker_status()[hung.url]["state"] == "closed"
 
 
+async def test_hot_standby_substitution_and_persistent_relay_health_json(tmp_path):
+    """When 1 of 3 active relays fails, FanOutRelayClient automatically substitutes a
+    healthy standby relay in the same call to keep 3/3 redundancy, writes relay-health.json,
+    and a subsequent client instance loads the open breaker without re-waiting."""
+    import json
+    from a4a.event import Event
+    from a4a.relay import FanOutRelayClient
+
+    health_path = tmp_path / "relay-health.json"
+    keys = Keys()
+
+    async with FakeRelay() as r1, FakeRelay() as r2, FakeRelay(respond_eose=False) as r3_dead, FakeRelay() as sb1:
+        r3_dead.reject_reason = "error: database or disk is full (cannot accept events)"
+        fanout = FanOutRelayClient(
+            [r1.url, r2.url, r3_dead.url],
+            standby_urls=[sb1.url],
+            health_file=health_path,
+        )
+        fanout.publish_deadline = 0.25
+        fanout.read_deadline = 0.25
+        fanout.breaker_cooldown = 30.0
+        await fanout.connect()
+        try:
+            ev = Event(kind=1, content="three-relay-failover").sign(keys)
+            accepted = await fanout.publish(ev, replay_on_reconnect=False, min_accepted=3)
+            # Even though r3_dead rejected, hot standby sb1 accepted in the same call -> 3/3!
+            assert accepted == 3
+            rep = fanout.last_publish_report
+            assert rep["accepted_count"] == 3
+            assert rep["target_count"] == 3
+            assert rep["substituted_relays"] == {r3_dead.url: sb1.url}
+            assert r3_dead.url in rep["failed_relays"]
+            assert rep["failover_active"] is True
+            assert any(e["id"] == ev.id for e in sb1.events)
+        finally:
+            await fanout.aclose()
+
+        # Verify relay-health.json was persisted on disk
+        assert health_path.is_file()
+        saved = json.loads(health_path.read_text(encoding="utf-8"))
+        assert saved["nodes"][r3_dead.url]["status"] == "open"
+        assert saved["nodes"][r3_dead.url]["consecutive_failures"] >= 1
+        assert saved["last_failover"]["substituted_relays"] == {r3_dead.url: sb1.url}
+
+        # A brand-new FanOutRelayClient instance (simulating a new CLI process) loads
+        # the open breaker from relay-health.json and immediately substitutes sb1 on query()
+        r3_dead.reject_reason = None  # r3_dead still has respond_eose=False (would stall 0.25s if queried)
+        fanout2 = FanOutRelayClient(
+            [r1.url, r2.url, r3_dead.url],
+            standby_urls=[sb1.url],
+            health_file=health_path,
+        )
+        fanout2.read_deadline = 0.30
+        assert fanout2.breaker_status()[r3_dead.url]["state"] == "open"
+        await fanout2.connect()
+        try:
+            found = await fanout2.query({"ids": [ev.id]})
+            assert len(found) == 1
+            read_rep = fanout2.last_read_report
+            assert read_rep["responded_count"] == 3
+            assert read_rep["substituted_relays"] == {r3_dead.url: sb1.url}
+        finally:
+            await fanout2.aclose()
+
+
+
 

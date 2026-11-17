@@ -3,6 +3,8 @@ import asyncio
 from dataclasses import dataclass
 import json
 import logging
+import os
+from pathlib import Path
 import secrets
 import time
 
@@ -624,7 +626,10 @@ class FanOutRelayClient:
     """
 
 
-    def __init__(self, urls: list[str], **kwargs):
+    def __init__(self, urls: list[str], *,
+                 standby_urls: list[str] | tuple[str, ...] = (),
+                 health_file: str | os.PathLike | None = None,
+                 **kwargs):
         if not urls:
             raise ValueError("at least one relay address is required")
         # IDENTICAL addresses are collapsed BEFORE any counting. Otherwise the same node
@@ -647,9 +652,25 @@ class FanOutRelayClient:
             raise ValueError(
                 f"at most {self.MAX_RELAYS} nodes are allowed because the aggregate raw-event "
                 f"inspection budget grows with their count; received {len(unique)}")
+        self._client_kwargs = dict(kwargs)
         self.clients = [RelayClient(u, **kwargs) for u in unique]
         self.url = self.clients[0].url
+        standby_unique: list[str] = []
+        for u in (standby_urls or ()):
+            key = _canonical_relay_key(u)
+            if key in seen:
+                continue
+            seen.add(key)
+            standby_unique.append(u)
+        self.standby_urls: list[str] = standby_unique
+        self._standby_clients: dict[str, RelayClient] = {}
+        self.health_file = Path(health_file) if health_file is not None else None
         self._breaker: dict[str, dict] = {}
+        self._persistent_health: dict = {"updated_at": 0.0, "nodes": {}, "last_failover": None, "promoted_relays": {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}}}
+        self.last_publish_report: dict | None = None
+        self.last_read_report: dict | None = None
+        if self.health_file is not None:
+            self._load_health_file()
 
     #: Per-node circuit breaker threshold and cooldown (in seconds).
     #:
@@ -672,6 +693,96 @@ class FanOutRelayClient:
             self._breaker = b
         return b
 
+    def _health_state(self) -> dict:
+        st = getattr(self, "_persistent_health", None)
+        if not isinstance(st, dict):
+            st = {"updated_at": 0.0, "nodes": {}, "last_failover": None, "promoted_relays": {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}}}
+            self._persistent_health = st
+        st.setdefault("nodes", {})
+        st.setdefault("last_failover", None)
+        st.setdefault("promoted_relays", {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}})
+        return st
+
+    def _load_health_file(self) -> None:
+        hp = getattr(self, "health_file", None)
+        if hp is None or not hp.exists():
+            return
+        try:
+            raw = json.loads(hp.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                return
+            st = self._health_state()
+            st.update(raw)
+            nodes = st.get("nodes") if isinstance(st.get("nodes"), dict) else {}
+            now_wall = time.time()
+            now_mono = time.monotonic()
+            b = self._breaker_map()
+            for url, info in nodes.items():
+                if not isinstance(info, dict):
+                    continue
+                open_until = float(info.get("breaker_open_until") or 0.0)
+                fails = int(info.get("consecutive_failures") or 0)
+                err_str = str(info.get("last_error") or "relay previously failed")
+                key = _canonical_relay_key(url)
+                if open_until > now_wall and fails >= self.breaker_threshold:
+                    rem = open_until - now_wall
+                    b[key] = {
+                        "url": url,
+                        "failures": fails,
+                        "last_error": RelayUnreachable(err_str),
+                        "opened_at": max(0.001, (now_mono + rem) - float(self.breaker_cooldown)),
+                    }
+        except Exception:
+            pass
+
+    def _save_health_file(self) -> None:
+        hp = getattr(self, "health_file", None)
+        if hp is None:
+            return
+        try:
+            hp.parent.mkdir(parents=True, exist_ok=True)
+            st = self._health_state()
+            st["updated_at"] = round(time.time(), 3)
+            tmp = hp.with_suffix(f".tmp.{os.getpid()}")
+            tmp.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(tmp, hp)
+        except Exception:
+            pass
+
+    def _get_standby_client(self, url: str) -> RelayClient:
+        sc = getattr(self, "_standby_clients", None)
+        if sc is None:
+            sc = {}
+            self._standby_clients = sc
+        key = _canonical_relay_key(url)
+        if key not in sc:
+            kwargs = getattr(self, "_client_kwargs", {})
+            sc[key] = RelayClient(url, **kwargs)
+        return sc[key]
+
+    def _select_healthy_standby_urls(self, count: int, exclude_keys: set[str] | None = None,
+                                     now: float | None = None) -> list[str]:
+        if count <= 0:
+            return []
+        standby = getattr(self, "standby_urls", None) or []
+        if not standby:
+            return []
+        ts = time.monotonic() if now is None else now
+        b = self._breaker_map()
+        excl = set(exclude_keys or ())
+        picked: list[str] = []
+        for u in standby:
+            key = _canonical_relay_key(u)
+            if key in excl:
+                continue
+            if self._is_breaker_open(b.get(key), ts):
+                continue
+            picked.append(u)
+            excl.add(key)
+            if len(picked) >= count:
+                break
+        return picked
+
     @staticmethod
     def _is_tripworthy_failure(exc: BaseException) -> bool:
         if isinstance(exc, (RelayUnreachable, asyncio.TimeoutError, OSError)):
@@ -685,11 +796,25 @@ class FanOutRelayClient:
                 return True
         return False
 
-    def _record_node_success(self, url: str) -> None:
+    def _record_node_success(self, url: str, latency_ms: float | None = None) -> None:
         b = self._breaker_map()
         key = _canonical_relay_key(url)
         if key in b:
             b.pop(key, None)
+        st = self._health_state()
+        now_wall = round(time.time(), 3)
+        prev = st["nodes"].get(url) if isinstance(st["nodes"].get(url), dict) else {}
+        st["nodes"][url] = {
+            "status": "healthy",
+            "consecutive_failures": 0,
+            "first_failure_at": None,
+            "last_ok_at": now_wall,
+            "last_error_at": prev.get("last_error_at"),
+            "last_error": None,
+            "breaker_open_until": 0.0,
+            "last_latency_ms": round(latency_ms, 1) if latency_ms is not None else prev.get("last_latency_ms"),
+        }
+        self._save_health_file()
 
     def _record_node_failure(self, url: str, exc: BaseException) -> None:
         if not self._is_tripworthy_failure(exc):
@@ -706,6 +831,23 @@ class FanOutRelayClient:
             "last_error": exc,
             "opened_at": now if opened else 0.0,
         }
+        st = self._health_state()
+        now_wall = round(time.time(), 3)
+        prev_node = st["nodes"].get(url) if isinstance(st["nodes"].get(url), dict) else {}
+        prev_fails = int(prev_node.get("consecutive_failures") or 0)
+        new_fails = max(fails, prev_fails + 1)
+        first_fail = prev_node.get("first_failure_at") or now_wall
+        st["nodes"][url] = {
+            "status": "open" if opened else "degraded",
+            "consecutive_failures": new_fails,
+            "first_failure_at": first_fail,
+            "last_ok_at": prev_node.get("last_ok_at"),
+            "last_error_at": now_wall,
+            "last_error": str(exc),
+            "breaker_open_until": round(now_wall + float(self.breaker_cooldown), 3) if opened else 0.0,
+            "last_latency_ms": prev_node.get("last_latency_ms"),
+        }
+        self._save_health_file()
 
     def _is_breaker_open(self, entry: dict | None, now: float) -> bool:
         if not entry:
@@ -723,12 +865,13 @@ class FanOutRelayClient:
         entry = b.get(_canonical_relay_key(url))
         if not self._is_breaker_open(entry, ts):
             return None
-        # Never short-circuit all nodes: at least one node in the pool must remain closed/half-open.
+        # Never short-circuit all nodes unless healthy standby nodes are available to substitute.
         closed_count = sum(
             1 for c in self.clients
             if not self._is_breaker_open(b.get(_canonical_relay_key(c.url)), ts)
         )
-        if closed_count == 0:
+        standby_avail = len(self._select_healthy_standby_urls(1, now=ts))
+        if closed_count == 0 and standby_avail == 0:
             return None
         return entry.get("last_error")
 
@@ -759,12 +902,57 @@ class FanOutRelayClient:
                 out[c.url] = {"state": "closed", "failures": 0, "remaining_cooldown_s": 0.0}
         return out
 
+    def failover_status(self) -> dict:
+        """Return structured relay health and failover state for agent/owner reporting."""
+        bs = self.breaker_status()
+        st = self._health_state()
+        degraded = {
+            url: info for url, info in bs.items()
+            if info.get("state") != "closed"
+        }
+        last_pub = getattr(self, "last_publish_report", None)
+        last_read = getattr(self, "last_read_report", None)
+        promoted = st.get("promoted_relays") or {}
+        last_failover = st.get("last_failover")
+        failover_active = bool(
+            degraded
+            or promoted.get("active")
+            or (isinstance(last_pub, dict) and last_pub.get("failover_active"))
+            or (isinstance(last_read, dict) and last_read.get("failover_active"))
+        )
+        return {
+            "active_relays": [c.url for c in self.clients],
+            "standby_relays": list(getattr(self, "standby_urls", None) or ()),
+            "failover_active": failover_active,
+            "degraded_relays": degraded,
+            "breaker_status": bs,
+            "last_publish": last_pub,
+            "last_read": last_read,
+            "last_failover": last_failover,
+            "promoted_relays": promoted,
+        }
+
     async def connect(self) -> None:
         """Connect to every node. One success is enough; the others may be under maintenance."""
         results = await asyncio.gather(*(c.connect() for c in self.clients),
                                        return_exceptions=True)
         failures = [r for r in results if isinstance(r, BaseException)]
         if len(failures) == len(self.clients):
+            # If all active nodes failed to connect, try standby nodes before failing.
+            standby_urls = self._select_healthy_standby_urls(len(self.clients))
+            if standby_urls:
+                sb_clients = [self._get_standby_client(u) for u in standby_urls]
+                sb_res = await asyncio.gather(*(sc.connect() for sc in sb_clients), return_exceptions=True)
+                for sc, r in zip(sb_clients, sb_res):
+                    if isinstance(r, BaseException):
+                        self._record_node_failure(sc.url, r)
+                    else:
+                        self._record_node_success(sc.url)
+                if any(not isinstance(r, BaseException) for r in sb_res):
+                    for client, result in zip(self.clients, results):
+                        if isinstance(result, BaseException):
+                            self._record_node_failure(client.url, result)
+                    return
             # Preserve the original error: it contains the node's verbatim rejection
             # reason, which a caller such as an MCP wrapper uses to form its own advice.
             raise failures[0]
@@ -776,7 +964,8 @@ class FanOutRelayClient:
                 self._record_node_success(client.url)
 
     async def aclose(self) -> None:
-        await asyncio.gather(*(c.aclose() for c in self.clients), return_exceptions=True)
+        sc = list((getattr(self, "_standby_clients", None) or {}).values())
+        await asyncio.gather(*(c.aclose() for c in [*self.clients, *sc]), return_exceptions=True)
 
     async def publish(self, event: Event, *, replay_on_reconnect: bool = True,
                       min_accepted: int = 1) -> int:
@@ -809,20 +998,23 @@ class FanOutRelayClient:
                 f"{min_accepted} copies are required, but only {len(self.clients)} distinct "
                 f"nodes are configured; the requirement cannot be satisfied")
 
+        t_start = time.perf_counter()
         now = time.monotonic()
         open_errors = {
             c.url: err
             for c in self.clients
             if (err := self._open_breaker_error(c.url, now)) is not None
         }
-        # Only bypass open-breaker nodes if the remaining healthy nodes can still satisfy min_accepted
-        use_breaker = (len(self.clients) - len(open_errors)) >= min_accepted
+        standby_list = getattr(self, "standby_urls", None) or []
+        # Only bypass open-breaker nodes if the remaining healthy nodes (or standby pool) can satisfy min_accepted
+        use_breaker = (len(self.clients) - len(open_errors) + len(standby_list)) >= min_accepted
 
-        async def _pub_one(c):
-            if use_breaker and c.url in open_errors:
-                return open_errors[c.url]
+        async def _pub_client(c: RelayClient, enforce_deadline: bool, *, auto_connect: bool = False) -> BaseException | None:
+            t0 = time.perf_counter()
             try:
-                if len(self.clients) > 1:
+                if auto_connect and getattr(c, "_ws", None) is None:
+                    await asyncio.wait_for(c.connect(), timeout=self.publish_deadline)
+                if enforce_deadline:
                     await asyncio.wait_for(
                         c.publish(event, replay_on_reconnect=replay_on_reconnect),
                         timeout=self.publish_deadline,
@@ -838,18 +1030,82 @@ class FanOutRelayClient:
             except BaseException as exc:
                 self._record_node_failure(c.url, exc)
                 return exc
-            self._record_node_success(c.url)
+            self._record_node_success(c.url, latency_ms=(time.perf_counter() - t0) * 1000.0)
             return None
+
+        async def _pub_one(c: RelayClient) -> BaseException | None:
+            if use_breaker and c.url in open_errors:
+                return open_errors[c.url]
+            return await _pub_client(c, len(self.clients) > 1 or bool(standby_list))
 
         results = await asyncio.gather(*(_pub_one(c) for c in self.clients), return_exceptions=True)
         failures = [(c.url, r) for c, r in zip(self.clients, results) if isinstance(r, BaseException)]
-        accepted = len(self.clients) - len(failures)
+        accepted_relays = [c.url for c, r in zip(self.clients, results) if not isinstance(r, BaseException)]
+        substituted: dict[str, str] = {}
+
+        # Hot standby substitution: if any active node failed or had an open breaker,
+        # pull healthy standby nodes so the event still lands on `len(self.clients)` nodes.
+        if failures and standby_list:
+            used_keys = {_canonical_relay_key(c.url) for c in self.clients}
+            remaining_failed = [u for u, _ in failures]
+            while remaining_failed:
+                candidates = self._select_healthy_standby_urls(
+                    len(remaining_failed), exclude_keys=used_keys
+                )
+                if not candidates:
+                    break
+                for cand in candidates:
+                    used_keys.add(_canonical_relay_key(cand))
+                sb_clients = [self._get_standby_client(u) for u in candidates]
+                sb_results = await asyncio.gather(
+                    *(_pub_client(sc, True, auto_connect=True) for sc in sb_clients), return_exceptions=True
+                )
+                next_failed: list[str] = []
+                for idx, (sc, sb_res) in enumerate(zip(sb_clients, sb_results)):
+                    failed_active = remaining_failed[idx]
+                    if not isinstance(sb_res, BaseException) and sb_res is None:
+                        substituted[failed_active] = sc.url
+                        accepted_relays.append(sc.url)
+                    else:
+                        next_failed.append(failed_active)
+                remaining_failed = next_failed + remaining_failed[len(candidates):]
+
+        accepted = len(accepted_relays)
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000.0, 1)
+        self.last_publish_report = {
+            "configured_relays": [c.url for c in self.clients],
+            "standby_relays": list(standby_list),
+            "target_count": len(self.clients),
+            "accepted_count": accepted,
+            "accepted_relays": accepted_relays,
+            "failed_relays": {u: str(err) for u, err in failures},
+            "substituted_relays": substituted,
+            "failover_active": bool(failures or substituted),
+            "elapsed_ms": elapsed_ms,
+        }
+        if failures or substituted:
+            st = self._health_state()
+            st["last_failover"] = {
+                "ts": round(time.time(), 3),
+                "operation": "publish",
+                "failed_relays": {u: str(err) for u, err in failures},
+                "substituted_relays": substituted,
+                "accepted_relays": accepted_relays,
+            }
+            self._save_health_file()
+
         if not accepted:
             # The original node failure carries both its verbatim reason and an SDK hint
             # for the caller. Wrapping it here would erase both.
             raise failures[0][1]
         for url, error in failures:
-            log.warning("relay %s did not accept event %s: %s", url, event.id[:16], error)
+            if url in substituted:
+                log.warning(
+                    "relay %s did not accept event %s (%s); hot-substituted by standby %s",
+                    url, event.id[:16], error, substituted[url],
+                )
+            else:
+                log.warning("relay %s did not accept event %s: %s", url, event.id[:16], error)
         if accepted < len(self.clients):
             # State partial redundancy as a NUMBER rather than expecting callers to
             # infer it from failure strings; a caller unaware of the issue will not know
@@ -914,6 +1170,7 @@ class FanOutRelayClient:
         return max(1, budget // nodes)
 
     async def _gather(self, call):
+        t_start = time.perf_counter()
         now = time.monotonic()
         active_pairs = []
         pre_failed: dict[int, BaseException] = {}
@@ -958,11 +1215,14 @@ class FanOutRelayClient:
                 self._record_node_failure(client.url, timeout_err)
                 results.append(timeout_err)
         good, unavailable = [], []
+        responded_relays: list[str] = []
+        failed_relays: dict[str, str] = {}
         for client, result in zip(self.clients, results):
             if isinstance(result, (RelayError, OSError, asyncio.TimeoutError)):
                 # One unreachable node must not hide messages stored on other nodes.
                 log.warning("relay %s did not answer the query: %s", client.url, result)
                 unavailable.append(result)
+                failed_relays[client.url] = str(result)
             elif isinstance(result, BaseException):
                 # A caller error (invalid limit or filter) is not a node failure.
                 # Swallowing it here would report "network unavailable" when the actual
@@ -970,10 +1230,115 @@ class FanOutRelayClient:
                 raise result
             else:
                 good.append(result)
+                responded_relays.append(client.url)
+
+        substituted: dict[str, str] = {}
+        standby_list = getattr(self, "standby_urls", None) or []
+        if failed_relays and standby_list:
+            used_keys = {_canonical_relay_key(c.url) for c in self.clients}
+            remaining_failed = list(failed_relays.keys())
+            while remaining_failed:
+                candidates = self._select_healthy_standby_urls(
+                    len(remaining_failed), exclude_keys=used_keys
+                )
+                if not candidates:
+                    break
+                for cand in candidates:
+                    used_keys.add(_canonical_relay_key(cand))
+                sb_clients = [self._get_standby_client(u) for u in candidates]
+                async def _call_sb(sc: RelayClient):
+                    if getattr(sc, "_ws", None) is None:
+                        await sc.connect()
+                    return await call(sc)
+                sb_tasks = [asyncio.ensure_future(_call_sb(sc)) for sc in sb_clients]
+                sb_done, sb_pending = await asyncio.wait(sb_tasks, timeout=self.read_deadline)
+                for pt in sb_pending:
+                    pt.cancel()
+                if sb_pending:
+                    await asyncio.gather(*sb_pending, return_exceptions=True)
+                next_failed: list[str] = []
+                for idx, (sc, stask) in enumerate(zip(sb_clients, sb_tasks)):
+                    failed_active = remaining_failed[idx]
+                    if stask in sb_done:
+                        sres = stask.exception() or stask.result()
+                        if isinstance(sres, (RelayError, OSError, asyncio.TimeoutError)):
+                            self._record_node_failure(sc.url, sres)
+                            next_failed.append(failed_active)
+                        elif isinstance(sres, BaseException):
+                            raise sres
+                        else:
+                            self._record_node_success(sc.url)
+                            good.append(sres)
+                            responded_relays.append(sc.url)
+                            substituted[failed_active] = sc.url
+                    else:
+                        t_err = asyncio.TimeoutError(
+                            f"relay {sc.url} did not respond within {self.read_deadline}s"
+                        )
+                        self._record_node_failure(sc.url, t_err)
+                        next_failed.append(failed_active)
+                remaining_failed = next_failed + remaining_failed[len(candidates):]
+
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000.0, 1)
+        self.last_read_report = {
+            "configured_relays": [c.url for c in self.clients],
+            "standby_relays": list(standby_list),
+            "target_count": len(self.clients),
+            "responded_count": len(good),
+            "responded_relays": responded_relays,
+            "failed_relays": failed_relays,
+            "substituted_relays": substituted,
+            "failover_active": bool(failed_relays or substituted),
+            "elapsed_ms": elapsed_ms,
+        }
+        if failed_relays or substituted:
+            st = self._health_state()
+            st["last_failover"] = {
+                "ts": round(time.time(), 3),
+                "operation": "read",
+                "failed_relays": failed_relays,
+                "substituted_relays": substituted,
+                "responded_relays": responded_relays,
+            }
+            self._save_health_file()
+
         if not good:
             # Preserve the reason: readers need the actual node failure, not our summary.
             raise unavailable[0]
         return good
+
+    async def query_standby(self, filters: dict | list[dict], *, max_events: int | None = None) -> list[Event]:
+        """Query the standby relay pool when discovery on active relays returns empty."""
+        standby_list = getattr(self, "standby_urls", None) or []
+        if not standby_list:
+            return []
+        candidates = self._select_healthy_standby_urls(len(standby_list))
+        if not candidates:
+            return []
+        ceiling = MAX_EVENTS_PER_QUERY if max_events is None else max_events
+        per_node = max(1, ceiling // len(candidates))
+        sb_clients = [self._get_standby_client(u) for u in candidates]
+        async def _q_sb(sc: RelayClient):
+            if getattr(sc, "_ws", None) is None:
+                await sc.connect()
+            return await sc.query_bounded(filters, max_events=per_node)
+        tasks = [asyncio.ensure_future(_q_sb(sc)) for sc in sb_clients]
+        done, pending = await asyncio.wait(tasks, timeout=self.read_deadline)
+        for pt in pending:
+            pt.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        batches: list[list[Event]] = []
+        for sc, task in zip(sb_clients, tasks):
+            if task in done:
+                res = task.exception() or task.result()
+                if isinstance(res, BaseException):
+                    self._record_node_failure(sc.url, res)
+                else:
+                    self._record_node_success(sc.url)
+                    batches.append(res.events)
+        merged, _ = self._merge(batches, ceiling)
+        return merged
 
     @staticmethod
     def _merge(batches: list[list[Event]], ceiling: int) -> tuple[list[Event], bool]:

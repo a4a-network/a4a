@@ -796,13 +796,19 @@ def _inbox_admin(argv):
                 args.relays,
                 allow_single_relay=args.allow_single_relay,
             )
+            standby = list(inbox_runtime.standby_relays_for(pol.relays))
             published_event_id = None
             if not args.no_publish:
                 async def _pub_relays():
                     from a4a import Agent
                     from . import identity
                     keys = identity.load_or_create_identity()
-                    async with Agent(list(pol.relays), keys=keys) as agent:
+                    broadcast_urls = list(dict.fromkeys([*pol.relays, *standby]))
+                    async with Agent(
+                        broadcast_urls,
+                        keys=keys,
+                        relay_health_file=inbox_runtime.relay_health_file_path(),
+                    ) as agent:
                         return await agent.publish_relay_list(list(pol.relays))
                 with contextlib.suppress(Exception):
                     published_event_id = asyncio.run(_pub_relays())
@@ -811,6 +817,7 @@ def _inbox_admin(argv):
                 "relay": pol.relay,
                 "relays": list(pol.relays),
                 "relay_count": len(pol.relays),
+                "standby_relays": standby,
                 "relay_list_event_id": published_event_id,
             }
             warn = inbox_runtime.relay_redundancy_warning(pol.relays)
@@ -836,7 +843,12 @@ def _inbox_admin(argv):
                 retries=args.retries,
             )
             result = _run_delivery(delivery, emit)
-            emit({"result": result})
+            out_deliver = {"result": result}
+            with contextlib.suppress(Exception):
+                fs = inbox_runtime.get_relay_failover_status()
+                if fs.get("failover_active"):
+                    out_deliver["relay_failover"] = fs
+            emit(out_deliver)
             _exit_for_delivery(result)
         elif args.command == "reply":
             from . import server
@@ -859,7 +871,12 @@ def _inbox_admin(argv):
                 ),
                 emit,
             )
-            emit({"result": result})
+            out_reply = {"result": result}
+            with contextlib.suppress(Exception):
+                fs = inbox_runtime.get_relay_failover_status()
+                if fs.get("failover_active"):
+                    out_reply["relay_failover"] = fs
+            emit(out_reply)
             _exit_for_delivery(result)
         elif args.command == "file-status":
             import re

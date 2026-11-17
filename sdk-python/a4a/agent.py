@@ -213,7 +213,9 @@ class Agent:
     """
 
     def __init__(self, relays: list[str], keys: Keys | None = None,
-                 allow_internal_relays: bool = False, public_journal_dir=None):
+                 allow_internal_relays: bool = False, public_journal_dir=None,
+                 standby_relays: list[str] | tuple[str, ...] = (),
+                 relay_health_file=None):
         if not relays:
             raise ValueError("at least one relay URL is required")
         self.keys = keys or Keys()
@@ -221,7 +223,11 @@ class Agent:
         # Before 2026-09-08, reads used only the first: a sender stored an envelope on
         # several declared relays while the recipient watched one, so losing that
         # relay also lost unread messages. Single-relay behavior remains identical.
-        self.relay = FanOutRelayClient(list(relays))
+        self.relay = FanOutRelayClient(
+            list(relays),
+            standby_urls=standby_relays,
+            health_file=relay_health_file,
+        )
         # Our own addresses are always permitted. Other internal addresses require
         # explicit consent: by default a foreign relay list cannot direct us inside
         # the perimeter, while multi-relay local development deliberately enables
@@ -2098,6 +2104,9 @@ class Agent:
         pubkey = Keys.normalize_pubkey(pubkey)
         events = await self.relay.query(
             {"kinds": [types.KIND_RELAY_LIST], "authors": [pubkey]})
+        if not events and isinstance(self.relay, FanOutRelayClient) and getattr(self.relay, "standby_urls", None):
+            events = await self.relay.query_standby(
+                {"kinds": [types.KIND_RELAY_LIST], "authors": [pubkey]})
         if not events:
             return []
         # Resolve equal timestamps with the LOWER ID, matching relay behavior under

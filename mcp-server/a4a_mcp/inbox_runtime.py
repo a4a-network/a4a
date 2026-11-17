@@ -182,20 +182,30 @@ _CORE_PUBLIC_RELAYS = (
     "wss://sg1.a4a.network",
 )
 
-DEFAULT_OFFICIAL_RELAY_POOL = (
+ALL_OFFICIAL_RELAYS = (
     "wss://ru1.a4a.network",
     "wss://ru2.a4a.network",
     "wss://eu1.a4a.network",
     "wss://eu2.a4a.network",
+    "wss://us2.a4a.network",
+    "wss://us1.a4a.network",
+    "wss://sg1.a4a.network",
 )
+
+DEFAULT_ACTIVE_RELAY_COUNT = 3
+
+DEFAULT_OFFICIAL_RELAY_POOL = ALL_OFFICIAL_RELAYS[:DEFAULT_ACTIVE_RELAY_COUNT]
+
+FAILOVER_REPUBLISH_MIN_FAILURES = 3
+FAILOVER_REPUBLISH_AFTER_SECS = 900.0
 
 
 def expand_official_relay_pool(
     relays: list[str] | tuple[str, ...] | str,
     *,
-    min_nodes: int = 4,
+    min_nodes: int = DEFAULT_ACTIVE_RELAY_COUNT,
 ) -> tuple[str, ...]:
-    """Expand a configuration containing only 1-2 official A4A relays to at least `min_nodes` official relays.
+    """Expand a new official A4A relay configuration to `min_nodes` (default 3) active relays.
 
     Private/custom relays (e.g. `ws://127.0.0.1:...` or private corporate hosts) are never
     expanded with public relays. When all configured URLs belong to `_OFFICIAL_A4A_RELAYS`
@@ -208,17 +218,263 @@ def expand_official_relay_pool(
         raw = [str(r).strip() for r in (relays or ()) if str(r).strip()]
     unique = list(dict.fromkeys(raw))
     if not unique:
-        return DEFAULT_OFFICIAL_RELAY_POOL[:max(1, min_nodes)]
+        return ALL_OFFICIAL_RELAYS[:max(1, min_nodes)]
     if len(unique) >= min_nodes:
         return tuple(unique)
     if not all(r in _OFFICIAL_A4A_RELAYS for r in unique):
         return tuple(unique)
-    for fallback in (*DEFAULT_OFFICIAL_RELAY_POOL, *_CORE_PUBLIC_RELAYS):
+    for fallback in (*ALL_OFFICIAL_RELAYS, *_CORE_PUBLIC_RELAYS):
         if fallback not in unique:
             unique.append(fallback)
         if len(unique) >= min_nodes:
             break
     return tuple(unique)
+
+
+def standby_relays_for(active_relays: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Return the ordered hot-standby reserve pool for `active_relays`.
+
+    Only official `*.a4a.network` relay pools receive official standby nodes; local
+    loopback (`127.0.0.1` / `localhost`) or private corporate relays return `()` so
+    isolated environments never reach out to public relays.
+    """
+    active = [str(r).strip() for r in (active_relays or ()) if str(r).strip()]
+    if not active or not all(r in _OFFICIAL_A4A_RELAYS for r in active):
+        return ()
+    active_set = set(active)
+    return tuple(r for r in ALL_OFFICIAL_RELAYS if r not in active_set)
+
+
+def relay_health_file_path() -> Path:
+    """Return `<A4A_HOME>/relay-health.json` path for persistent per-node health and failover state."""
+    return identity.IDENTITY_DIR / "relay-health.json"
+
+
+def _read_relay_health_data() -> dict:
+    hp = relay_health_file_path()
+    default_state = {
+        "updated_at": 0.0,
+        "nodes": {},
+        "last_failover": None,
+        "promoted_relays": {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}},
+        "draining_relays": {"urls": [], "until": 0.0},
+    }
+    if not hp.is_file() or hp.is_symlink():
+        return default_state
+    try:
+        raw = json.loads(hp.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            default_state.update(raw)
+    except Exception:
+        pass
+    return default_state
+
+
+def _write_relay_health_data(data: dict) -> None:
+    hp = relay_health_file_path()
+    try:
+        hp.parent.mkdir(parents=True, exist_ok=True)
+        data["updated_at"] = round(time.time(), 3)
+        tmp = hp.with_suffix(f".tmp.{os.getpid()}")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, hp)
+    except Exception:
+        pass
+
+
+def get_relay_failover_status(agent=None, policy: InboxPolicy | None = None) -> dict:
+    """Return structured relay health, degraded nodes, and standby substitution status."""
+    pol = policy
+    if pol is None:
+        with contextlib.suppress(Exception):
+            pol = load_policy()
+    if agent is not None and hasattr(agent, "_own_relays"):
+        active = list(agent._own_relays)
+    elif pol is not None:
+        active = list(pol.relays or (pol.relay,))
+    else:
+        from .server import _relay_urls
+        active = list(_relay_urls())
+    standby = list(standby_relays_for(active))
+    st = _read_relay_health_data()
+    now_wall = time.time()
+    nodes_info = st.get("nodes") if isinstance(st.get("nodes"), dict) else {}
+    degraded: dict[str, dict] = {}
+    for u in active:
+        info = nodes_info.get(u)
+        if isinstance(info, dict):
+            fails = int(info.get("consecutive_failures") or 0)
+            open_until = float(info.get("breaker_open_until") or 0.0)
+            if fails > 0 or open_until > now_wall or info.get("status") in ("open", "degraded"):
+                degraded[u] = {
+                    "status": "open" if open_until > now_wall else "degraded",
+                    "consecutive_failures": fails,
+                    "first_failure_at": info.get("first_failure_at"),
+                    "last_error": info.get("last_error"),
+                    "remaining_cooldown_s": round(max(0.0, open_until - now_wall), 2),
+                }
+    if agent is not None and hasattr(agent, "relay") and hasattr(agent.relay, "failover_status"):
+        live_fs = agent.relay.failover_status()
+        for u, binfo in (live_fs.get("degraded_relays") or {}).items():
+            if u not in degraded:
+                degraded[u] = binfo
+        last_pub = live_fs.get("last_publish")
+        last_read = live_fs.get("last_read")
+    else:
+        last_pub = None
+        last_read = None
+    promoted = st.get("promoted_relays") if isinstance(st.get("promoted_relays"), dict) else {"active": False}
+    last_failover = st.get("last_failover")
+    failover_active = bool(
+        degraded
+        or promoted.get("active")
+        or (isinstance(last_pub, dict) and last_pub.get("failover_active"))
+        or (isinstance(last_read, dict) and last_read.get("failover_active"))
+    )
+    return {
+        "active_relays": active,
+        "standby_relays": standby,
+        "failover_active": failover_active,
+        "degraded_relays": degraded,
+        "promoted_relays": promoted,
+        "last_failover": last_failover,
+        "last_publish": last_pub,
+        "last_read": last_read,
+    }
+
+
+def format_relay_failover_notice(agent) -> str:
+    """Format an explicit agent-facing delivery/failover summary from `agent.relay`."""
+    relay = getattr(agent, "relay", None)
+    pub = getattr(relay, "last_publish_report", None) if relay is not None else None
+    fs = get_relay_failover_status(agent=agent)
+    parts: list[str] = []
+    if isinstance(pub, dict):
+        acc = pub.get("accepted_count", 0)
+        tgt = pub.get("target_count", 0)
+        el = pub.get("elapsed_ms")
+        el_part = f" publish_ms={el}" if el is not None else ""
+        parts.append(f"relays_accepted={acc}/{tgt}{el_part}.")
+        failed = pub.get("failed_relays") or {}
+        subst = pub.get("substituted_relays") or {}
+        if failed or subst:
+            fail_desc = ", ".join(f"{u} ({err})" for u, err in failed.items())
+            sub_desc = ", ".join(f"{k} -> {v}" for k, v in subst.items())
+            msg = f"[RELAY FAILOVER NOTICE: unreachable active relay(s): {fail_desc}."
+            if sub_desc:
+                msg += f" Automatically substituted from standby pool: {sub_desc}."
+            msg += "]"
+            parts.append(msg)
+    elif fs.get("failover_active"):
+        deg = fs.get("degraded_relays") or {}
+        if deg:
+            fail_desc = ", ".join(f"{u} ({v.get('last_error') or v.get('status')})" for u, v in deg.items())
+            parts.append(f"[RELAY FAILOVER NOTICE: degraded active relay(s): {fail_desc}.]")
+    promoted = fs.get("promoted_relays") or {}
+    if promoted.get("active"):
+        rep = promoted.get("replaced") or {}
+        rep_desc = ", ".join(f"{k} -> {v}" for k, v in rep.items())
+        parts.append(f"[KIND-10002 AUTO-FAILOVER ACTIVE: {rep_desc}]")
+    return (" " + " ".join(parts)) if parts else ""
+
+
+async def reconcile_relay_failover(
+    agent=None,
+    policy: InboxPolicy | None = None,
+    *,
+    now: float | None = None,
+    min_failures: int = FAILOVER_REPUBLISH_MIN_FAILURES,
+    after_secs: float = FAILOVER_REPUBLISH_AFTER_SECS,
+) -> dict:
+    """Automatically update kind-10002 NIP-65 relay list when a primary relay has a prolonged outage,
+    and restore the original relay list once all primary relays recover."""
+    pol = policy or load_policy()
+    if pol is None:
+        return {"action": "none", "reason": "unconfigured"}
+    active = list(pol.relays or (pol.relay,))
+    standby = list(standby_relays_for(active))
+    if not standby:
+        return {"action": "none", "reason": "no_standby_pool"}
+    ts = time.time() if now is None else float(now)
+    st = _read_relay_health_data()
+    nodes = st.get("nodes") if isinstance(st.get("nodes"), dict) else {}
+    promoted = st.get("promoted_relays") if isinstance(st.get("promoted_relays"), dict) else {}
+
+    prolonged_down: list[str] = []
+    for u in active:
+        info = nodes.get(u)
+        if not isinstance(info, dict):
+            continue
+        fails = int(info.get("consecutive_failures") or 0)
+        first_fail = info.get("first_failure_at")
+        if fails >= min_failures and first_fail is not None and (ts - float(first_fail)) >= after_secs:
+            prolonged_down.append(u)
+
+    if prolonged_down:
+        healthy_standby = []
+        for su in standby:
+            sinfo = nodes.get(su)
+            sfails = int(sinfo.get("consecutive_failures") or 0) if isinstance(sinfo, dict) else 0
+            if sfails == 0 and su not in active:
+                healthy_standby.append(su)
+        replaced: dict[str, str] = {}
+        effective: list[str] = []
+        sb_idx = 0
+        for u in active:
+            if u in prolonged_down and sb_idx < len(healthy_standby):
+                rep_url = healthy_standby[sb_idx]
+                sb_idx += 1
+                effective.append(rep_url)
+                replaced[u] = rep_url
+            else:
+                effective.append(u)
+        if replaced and effective != promoted.get("effective_relays"):
+            ev_id = None
+            broadcast_urls = list(dict.fromkeys([*effective, *standby, *active]))
+            keys = _existing_keys()
+            async with Agent(broadcast_urls, keys=keys, relay_health_file=relay_health_file_path()) as pub_agent:
+                ev_id = await pub_agent.publish_relay_list(effective)
+            st = _read_relay_health_data()
+            st["promoted_relays"] = {
+                "active": True,
+                "promoted_at": round(ts, 3),
+                "effective_relays": effective,
+                "replaced": replaced,
+                "event_id": ev_id,
+            }
+            _write_relay_health_data(st)
+            return {
+                "action": "promoted_standby_in_10002",
+                "effective_relays": effective,
+                "replaced": replaced,
+                "event_id": ev_id,
+            }
+        return {"action": "already_promoted", "effective_relays": promoted.get("effective_relays"), "replaced": promoted.get("replaced")}
+
+    if promoted.get("active"):
+        all_healthy = all(
+            int((nodes.get(u) or {}).get("consecutive_failures") or 0) == 0
+            for u in active
+        )
+        if all_healthy:
+            ev_id = None
+            broadcast_urls = list(dict.fromkeys([*active, *standby]))
+            keys = _existing_keys()
+            async with Agent(broadcast_urls, keys=keys, relay_health_file=relay_health_file_path()) as pub_agent:
+                ev_id = await pub_agent.publish_relay_list(active)
+            st = _read_relay_health_data()
+            st["promoted_relays"] = {
+                "active": False,
+                "promoted_at": None,
+                "effective_relays": [],
+                "replaced": {},
+                "restored_at": round(ts, 3),
+                "event_id": ev_id,
+            }
+            _write_relay_health_data(st)
+            return {"action": "restored_primary_in_10002", "effective_relays": active, "event_id": ev_id}
+
+    return {"action": "none", "effective_relays": active}
 
 _OPTIONAL_POLICY_FIELDS = {
     "ack_on_receipt",
@@ -592,7 +848,10 @@ def configure(consumer, allowed_peers, *, start_after=None, replace=False,
             effective_relays = existing.relays
         else:
             effective_relays = tuple(env_relays) if env_relays else (primary_relay,)
-        effective_relays = expand_official_relay_pool(effective_relays)
+            if existing is None:
+                effective_relays = expand_official_relay_pool(
+                    effective_relays, min_nodes=DEFAULT_ACTIVE_RELAY_COUNT
+                )
     if effective_relays:
         primary_relay = effective_relays[0]
     draft = InboxPolicy(
@@ -648,6 +907,8 @@ def set_relays(relays: list[str] | tuple[str, ...] | str, *, allow_single_relay:
     policy = load_policy()
     if policy is None:
         raise InboxError("Private inbox is not configured yet; run setup or inbox-configure first.")
+    old_relays = list(policy.relays or (policy.relay,))
+    removed = [r for r in old_relays if r not in unique]
     for r in unique:
         InboxHistory(r, policy.recipient)
     updated = InboxPolicy(
@@ -671,7 +932,14 @@ def set_relays(relays: list[str] | tuple[str, ...] | str, *, allow_single_relay:
         relays=tuple(unique),
     )
     data = _policy_to_json_data(updated, relays=unique)
-    return _write_policy_data(data, replace=True)
+    written = _write_policy_data(data, replace=True)
+    with contextlib.suppress(Exception):
+        st = _read_relay_health_data()
+        st["promoted_relays"] = {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}}
+        if removed:
+            st["draining_relays"] = {"urls": removed, "until": round(time.time() + 86400, 3)}
+        _write_relay_health_data(st)
+    return written
 
 
 _HEX64_IN_LABEL_RE = re.compile(r"\b[0-9a-fA-F]{64}\b")
@@ -1530,8 +1798,13 @@ def open_runtime():
     for r in policy.relays or ():
         if r and r not in relays:
             relays.append(r)
-    relays = list(expand_official_relay_pool(relays))
-    agent = Agent(relays, keys=keys)
+    standby = standby_relays_for(relays)
+    agent = Agent(
+        relays,
+        keys=keys,
+        standby_relays=standby,
+        relay_health_file=relay_health_file_path(),
+    )
     agent.public_journal_dir = identity.IDENTITY_DIR / "publications" / keys.pubkey_hex
     with _open_store(policy) as store:
         if policy.allowed_owners and store.dialogue_enabled():
@@ -1627,8 +1900,11 @@ def status():
         else:
             counts["reliable"] = True
         active_relays = list(agent._own_relays)
+        standby_relays = list(standby_relays_for(active_relays))
         result = {"state": "configured", "counts": counts, "receiver": health,
                 "relays": active_relays, "relay_count": len(active_relays),
+                "standby_relays": standby_relays,
+                "relay_failover": get_relay_failover_status(agent=agent, policy=policy),
                 "notifications": notifications, "host_signal": journal_status(store),
                 "untimed_numbers": untimed_counts(store, agent)}
         redundancy_warn = relay_redundancy_warning(active_relays)
@@ -1757,6 +2033,10 @@ def _with_unknown_notice(result, store):
             "admit in one step with quarantine-decide --req-id <id> --decision accept "
             "--label \"Name (Role)\" (or reject/block)."
         )
+    with contextlib.suppress(Exception):
+        fs = get_relay_failover_status()
+        if fs.get("failover_active"):
+            result["relay_failover"] = fs
     _attach_lifecycle_hints(result, store)
     return result
 
@@ -2198,6 +2478,8 @@ async def _recheck_sent_deliveries(agent, *, every: float = 60.0):
             log.info("public announcement repair: %s", result)
     except Exception:
         log.exception("public announcement repair failed; receiving continues")
+    with contextlib.suppress(Exception):
+        await reconcile_relay_failover(agent=agent, now=now)
     from . import outbox_runtime
     try:
         result = await outbox_runtime.recheck_due_on(agent, now=now)

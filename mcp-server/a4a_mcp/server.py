@@ -128,9 +128,15 @@ def _relay_url() -> str:
 
 def _make_agent() -> Agent:
     keys = load_or_create_identity()
-    urls = list(inbox_runtime.expand_official_relay_pool(_relay_urls()))
-    return Agent(urls, keys=keys,
-                 public_journal_dir=identity.IDENTITY_DIR / "publications" / keys.pubkey_hex)
+    urls = list(_relay_urls())
+    standby = inbox_runtime.standby_relays_for(urls)
+    return Agent(
+        urls,
+        keys=keys,
+        standby_relays=standby,
+        relay_health_file=inbox_runtime.relay_health_file_path(),
+        public_journal_dir=identity.IDENTITY_DIR / "publications" / keys.pubkey_hex,
+    )
 
 
 def _publication_notice(agent) -> str:
@@ -1844,10 +1850,16 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
                 ack_timeout=resolved_timeout, poll_interval=0.5,
                 resolve_recipient_relays=True, private=True, outbox=journal,
                 conversation_id=conversation_id, reply_to=reply_to)
+            failover_notice = inbox_runtime.format_relay_failover_notice(agent)
+            try:
+                await inbox_runtime.reconcile_relay_failover(agent=agent)
+            except Exception:
+                pass
     if result["status"] == "acknowledged":
         return (f"Private delivery: acknowledged, recipient {to_pubkey}. "
                 f"delivery_id={result['delivery_id']} event_id={result['event_id']} "
-                f"ack_status={result['ack_status']} attempts={result['attempts']}.")
+                f"ack_status={result['ack_status']} attempts={result['attempts']}."
+                f"{failover_notice}")
     # Lead with what happened (26.09: an agent resent on the word "dead_letter" and made a
     # duplicate); the journal state name stays in the text for tools.
     return (f"Private delivery: SENT, NOT YET CONFIRMED - do not resend (journal state "
@@ -1858,6 +1870,7 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
             + (f" {result['ack_query_errors']} ACK check(s) could not reach the relays, so "
                "silence is not established."
                if result.get("ack_query_errors") else "")
+            + failover_notice
             + " This is not lost: the letter stays on the relays, and a recipient whose "
             "receiver is offline, or whose mailbox is read later, still acknowledges. Do "
             "not resend. The delivery is journaled: a4a_delivery_status with this "

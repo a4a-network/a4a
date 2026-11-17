@@ -33,12 +33,12 @@ OFFICIAL_RELEASE_SIGNING_PUBKEYS: frozenset[str] = frozenset({
 VALID_SEVERITIES = ("info", "recommended", "security", "critical")
 
 _WHEEL_URL_RE = re.compile(
-    r"^https://a4a\.network/dist/a4a_(?:sdk|mcp)-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl$"
+    r"^https://a4a\.network/dist/a4a_(?:sdk|mcp)-[0-9]+\.[0-9]+\.[0-9]+(?:\.post[0-9]+)?-py3-none-any\.whl$"
 )
 _GITHUB_URL_RE = re.compile(
     r"^https://github\.com/a4a-network/a4a(?:/[A-Za-z0-9_.\-/]+)?$"
 )
-_SEMVER_RE = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
+_SEMVER_RE = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.post([0-9]+))?$")
 _BUILD_ID_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
 
 
@@ -46,13 +46,13 @@ class AdvisoryError(ValueError):
     """Raised when a release advisory fails cryptographic or domain validation."""
 
 
-def _parse_semver(version: str) -> tuple[int, int, int]:
+def _parse_semver(version: str) -> tuple[int, int, int, int]:
     if not isinstance(version, str):
         raise AdvisoryError("version must be a string")
     m = _SEMVER_RE.fullmatch(version.strip())
     if not m:
         raise AdvisoryError(f"invalid semantic version: {version!r}")
-    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    return int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4) or 0)
 
 
 def create_signed_release_advisory(
@@ -64,6 +64,7 @@ def create_signed_release_advisory(
     summary: str = "",
     wheel_urls: list[str] | tuple[str, ...] | None = None,
     github_diff_url: str = "https://github.com/a4a-network/a4a/commits/main",
+    delegation_id: str | None = None,
     created_at: int | None = None,
 ) -> Event:
     """Create and sign an official `kind 30078` A4A release advisory event."""
@@ -100,14 +101,17 @@ def create_signed_release_advisory(
         "github_diff_url": github_diff_url.strip(),
     }
     now = int(time.time()) if created_at is None else int(created_at)
+    tags = [
+        ["d", ADVISORY_D_TAG],
+        ["version", version.strip()],
+        ["severity", severity],
+    ]
+    if delegation_id:
+        tags.append(["delegation", delegation_id.strip()])
     ev = Event(
         kind=KIND_RELEASE_ADVISORY,
         created_at=now,
-        tags=[
-            ["d", ADVISORY_D_TAG],
-            ["version", version.strip()],
-            ["severity", severity],
-        ],
+        tags=tags,
         content=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
     )
     return ev.sign(signer)

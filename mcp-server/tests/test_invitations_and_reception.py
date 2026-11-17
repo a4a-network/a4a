@@ -375,13 +375,15 @@ def test_official_relay_pool_interoperability_and_contact_labels(tmp_path, monke
     monkeypatch.setenv("A4A_RELAY", "wss://ru1.a4a.network")
 
     # Official regional relay switch (eu1 <-> ru1) must NOT fail active_policy(),
-    # and a single official relay is automatically expanded to at least 4 official nodes
+    # and a new official relay setup defaults to 3 active relays + 4 standby relays
     pol = inbox_runtime.active_policy()
     assert pol.relay == "wss://eu1.a4a.network"
-    assert len(pol.relays) >= 4
+    assert len(pol.relays) == 3
     assert "wss://ru1.a4a.network" in pol.relays
     assert "wss://ru2.a4a.network" in pol.relays
-    assert "wss://eu2.a4a.network" in pol.relays
+    standby = inbox_runtime.standby_relays_for(pol.relays)
+    assert len(standby) == 4
+    assert "wss://eu2.a4a.network" in standby
     # Private/custom relay is never expanded with public relays
     assert inbox_runtime.expand_official_relay_pool(["ws://127.0.0.1:8080"]) == ("ws://127.0.0.1:8080",)
 
@@ -672,6 +674,200 @@ async def test_encrypted_address_book_relay_sync_pull_merge_and_security_guards(
         assert pol_restored.peer_policy(colleague_1.pubkey_hex)["level"] == 2
         assert pol_restored.peer_policy(colleague_2.pubkey_hex)["label"] == "Max (QA Lead)"
         assert pol_restored.peer_policy(colleague_2.pubkey_hex)["level"] == 1
+
+
+@pytest.mark.asyncio
+async def test_relay_failover_notice_and_prolonged_outage_10002_update(tmp_path, monkeypatch):
+    """Verify that:
+    1) Existing policies are never forcibly rewritten on open_runtime() (only via explicit set_relays).
+    2) Prolonged failure of 1 of 3 active relays triggers automatic kind=10002 standby promotion
+       in reconcile_relay_failover() and automatic restoration when the primary relay recovers."""
+    import time
+
+    async with FakeRelay() as r1, FakeRelay() as r2, FakeRelay() as r3, FakeRelay() as sb1:
+        home = tmp_path / "failover_agent"
+        _switch_home(monkeypatch, home)
+        monkeypatch.setattr(
+            inbox_runtime,
+            "_OFFICIAL_A4A_RELAYS",
+            frozenset({r1.url, r2.url, r3.url, sb1.url}),
+        )
+        monkeypatch.setattr(
+            inbox_runtime,
+            "ALL_OFFICIAL_RELAYS",
+            (r1.url, r2.url, r3.url, sb1.url),
+        )
+        monkeypatch.setenv("A4A_RELAY", f"{r1.url},{r2.url}")
+        owner_keys = identity.load_or_create_owner_identity()
+        agent_keys = identity.load_or_create_identity()
+
+        # Existing 2-relay policy stays at 2 relays until explicit set_relays is called
+        inbox_runtime.configure(
+            "failover-session",
+            [],
+            start_after=0,
+            relays=[r1.url, r2.url],
+        )
+        with inbox_runtime.open_runtime() as (pol, ag, _):
+            assert list(pol.relays) == [r1.url, r2.url]
+            assert list(ag._own_relays) == [r1.url, r2.url]
+
+        # Explicit set_relays moves the agent to 3 active relays (r1, r2, r3) + 1 standby (sb1)
+        monkeypatch.setenv("A4A_RELAY", f"{r1.url},{r2.url},{r3.url}")
+        pol3 = inbox_runtime.set_relays([r1.url, r2.url, r3.url])
+        assert list(pol3.relays) == [r1.url, r2.url, r3.url]
+        assert inbox_runtime.standby_relays_for(pol3.relays) == (sb1.url,)
+
+        async with Agent([r1.url, r2.url, r3.url, sb1.url], keys=agent_keys) as reg_agent:
+            await reg_agent.register(owner_keys, name="Failover Agent", days=30)
+
+        # Simulate prolonged outage on r2 (3 consecutive failures over 1000 seconds)
+        now = time.time()
+        inbox_runtime._write_relay_health_data({
+            "updated_at": now,
+            "nodes": {
+                r1.url: {"status": "healthy", "consecutive_failures": 0, "last_ok_at": now},
+                r2.url: {
+                    "status": "open",
+                    "consecutive_failures": 4,
+                    "first_failure_at": now - 1000.0,
+                    "last_error": "no OK response within 5.0s",
+                    "breaker_open_until": now + 30.0,
+                },
+                r3.url: {"status": "healthy", "consecutive_failures": 0, "last_ok_at": now},
+                sb1.url: {"status": "healthy", "consecutive_failures": 0, "last_ok_at": now},
+            },
+            "promoted_relays": {"active": False, "promoted_at": None, "effective_relays": [], "replaced": {}},
+        })
+
+        # Status immediately reports failover_active and degraded r2
+        st = inbox_runtime.status()
+        assert st["relay_failover"]["failover_active"] is True
+        assert r2.url in st["relay_failover"]["degraded_relays"]
+
+        # Reconcile automatically promotes sb1 in place of r2 in kind=10002
+        rec = await inbox_runtime.reconcile_relay_failover(now=now)
+        assert rec["action"] == "promoted_standby_in_10002"
+        assert rec["effective_relays"] == [r1.url, sb1.url, r3.url]
+        assert rec["replaced"] == {r2.url: sb1.url}
+
+        # Verify kind=10002 on relays now lists [r1, sb1, r3] while inbox-policy.json still keeps [r1, r2, r3]
+        assert list(inbox_runtime.load_policy().relays) == [r1.url, r2.url, r3.url]
+        async with Agent([r1.url], keys=agent_keys, allow_internal_relays=True) as checker:
+            resolved = await checker.resolve_relays(agent_keys.pubkey_hex)
+            assert resolved == [r1.url, sb1.url, r3.url]
+
+        # Once r2 recovers (consecutive_failures == 0), reconcile_relay_failover restores [r1, r2, r3] in kind=10002
+        health_recovered = inbox_runtime._read_relay_health_data()
+        health_recovered["nodes"][r2.url] = {"status": "healthy", "consecutive_failures": 0, "last_ok_at": now + 10}
+        inbox_runtime._write_relay_health_data(health_recovered)
+
+        rec2 = await inbox_runtime.reconcile_relay_failover(now=now + 10)
+        assert rec2["action"] == "restored_primary_in_10002"
+        assert rec2["effective_relays"] == [r1.url, r2.url, r3.url]
+        async with Agent([r1.url], keys=agent_keys, allow_internal_relays=True) as checker:
+            resolved2 = await checker.resolve_relays(agent_keys.pubkey_hex)
+            assert resolved2 == [r1.url, r2.url, r3.url]
+
+
+@pytest.mark.asyncio
+async def test_three_relays_with_max_recipient_relays_5_leaves_zero_unread_and_surfaces_failover(tmp_path, monkeypatch):
+    """Verify that with 3 active relays (<= MAX_RECIPIENT_RELAYS=5) and 1 standby relay:
+    1) resolve_relays() returns all 3 recipient relays without truncation (whereas 7 truncated to 5).
+    2) If 1 of the 3 active relays fails during a4a_deliver, hot-standby substitution keeps
+       relays_accepted=3/3 and surfaces [RELAY FAILOVER NOTICE: ...] in the tool response.
+    3) Zero messages or ACKs are left unread across a multi-message burst."""
+    from a4a import agent as agent_mod
+    import asyncio
+
+    assert agent_mod.MAX_RECIPIENT_RELAYS == 5
+
+    async with FakeRelay() as r1, FakeRelay() as r2_flaky, FakeRelay() as r3, FakeRelay() as sb1:
+        home_sender = tmp_path / "sender_3relays"
+        _switch_home(monkeypatch, home_sender)
+        monkeypatch.setattr(
+            inbox_runtime,
+            "_OFFICIAL_A4A_RELAYS",
+            frozenset({r1.url, r2_flaky.url, r3.url, sb1.url}),
+        )
+        monkeypatch.setattr(
+            inbox_runtime,
+            "ALL_OFFICIAL_RELAYS",
+            (r1.url, r2_flaky.url, r3.url, sb1.url),
+        )
+        monkeypatch.setenv("A4A_RELAY", f"{r1.url},{r2_flaky.url},{r3.url}")
+        monkeypatch.setattr(server, "_DELIVER_ACK_TIMEOUT", 1.5)
+        monkeypatch.setattr(server, "_DELIVER_RETRIES", 1)
+
+        s_owner = identity.load_or_create_owner_identity()
+        s_keys = identity.load_or_create_identity()
+
+        recipient_owner = Keys()
+        recipient_keys = Keys()
+
+        inbox_runtime.configure(
+            "sender-3",
+            [recipient_keys.pubkey_hex],
+            start_after=0,
+            relays=[r1.url, r2_flaky.url, r3.url],
+            peer_trust={
+                recipient_keys.pubkey_hex: {
+                    "level": 2,
+                    "origin": "owner_agent",
+                    "topics": [],
+                    "remote_trust_attested": False,
+                    "label": "Owner Representative (3-Relay Test)",
+                }
+            },
+        )
+
+        async with Agent([r1.url, r2_flaky.url, r3.url, sb1.url], keys=s_keys, allow_internal_relays=True) as sa:
+            await sa.register(s_owner, name="Sender 3-Relay", days=30)
+            await sa.publish_relay_list([r1.url, r2_flaky.url, r3.url])
+
+        async with Agent([r1.url, r2_flaky.url, r3.url], keys=recipient_keys, allow_internal_relays=True) as ra:
+            await ra.register(recipient_owner, name="Recipient 3-Relay", days=30)
+            await ra.publish_relay_list([r1.url, r2_flaky.url, r3.url])
+            resolved = await ra.resolve_relays(recipient_keys.pubkey_hex)
+            assert len(resolved) == 3
+            assert resolved == [r1.url, r2_flaky.url, r3.url]
+
+            # Break r2_flaky with a storage-full error so hot standby sb1 must substitute
+            r2_flaky.reject_reason = "error: database or disk is full (cannot accept events)"
+
+            async def _auto_ack_loop():
+                seen = set()
+                for _ in range(30):
+                    msgs = await ra.read_private_messages()
+                    for m in msgs:
+                        if m["inner_id"] not in seen:
+                            seen.add(m["inner_id"])
+                            await ra.acknowledge(m, status="received")
+                    if len(seen) >= 3:
+                        return seen
+                    await asyncio.sleep(0.05)
+                return seen
+
+            ack_task = asyncio.create_task(_auto_ack_loop())
+            outputs = []
+            for idx in range(3):
+                out = await server.a4a_deliver(
+                    recipient_keys.pubkey_hex,
+                    f"Message #{idx + 1} on 3 relays",
+                    new_letter=True,
+                )
+                outputs.append(out)
+            seen_ids = await ack_task
+
+        # All 3 messages were received and acknowledged with zero unread events
+        assert len(seen_ids) == 3
+        for out in outputs:
+            assert "Private delivery: acknowledged" in out
+            assert "relays_accepted=3/3" in out
+            assert "[RELAY FAILOVER NOTICE:" in out
+            assert sb1.url in out
+
+
 
 
 
