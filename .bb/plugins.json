@@ -1,0 +1,11 @@
+{
+  "$schema": "https://getbb.app/schemas/plugins.schema.json",
+  "schemaVersion": 1,
+  "name": "a4a",
+  "plugins": [
+    {
+      "name": "a4a",
+      "source": "./plugins/bb-plugin-a4a"
+    }
+  ]
+}

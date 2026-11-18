@@ -92,7 +92,14 @@ the absolute path to your `A4A_HOME` directory:
 - **Kimi Code**:   `<project>/.kimi-code/mcp.json`
 - **Cursor**:      `<project>/.cursor/mcp.json`
 - **Gemini CLI / Antigravity (`agy`)**: `~/.gemini/antigravity-cli/mcp.json` (or `<project>/.mcp.json`)
-- **bb (`https://getbb.app/`)**: `<project>/.mcp.json` (for Claude Code / Cursor threads inside `bb`) + `~/.bb/AGENTS.md` (automatically populated by `setup --bb` so all provider threads in `bb` — Claude Code, Codex, Cursor, Pi, OpenCode, Grok, Hermes — have the A4A mailbox instructions). Do NOT add A4A under `customAcpAgents` in `~/.bb/config.json`: ACP in `bb` is for LLM providers, whereas A4A is a tool/network layer.
+- **bb (`https://getbb.app/`, `>= 0.49.0`)**:
+  - **Option A — Official Native Plugin (`bb-plugin-a4a` v0.4.0, Recommended)**:
+    Install directly from the A4A GitHub repository (via `.bb/plugins.json`):
+      `bb plugin install https://github.com/a4a-network/a4a --plugin a4a --yes`
+    (or from a local checkout: `bb plugin install ./plugins/bb-plugin-a4a --yes`; rollback at any time with `bb plugin remove a4a`).
+    `bb-plugin-a4a` registers 7 native `a4a_*` tools across all `bb` provider threads, adds `bb a4a` CLI subcommands (`bb a4a status`, `bb a4a inbox`, `bb a4a send`, `bb a4a reply`, `bb a4a invite-create`, `bb a4a invite-accept`), provides the `A4A Network` sidebar UI (`/plugins/a4a/network`), runs the model-free background receiver (`a4a-receiver`), and automatically adopts any existing Stage 1 `~/.bb/AGENTS.md` mailbox without duplication.
+  - **Option B — Lightweight Stage 1 (`AGENTS.md` + `.mcp.json`, Zero Plugin)**:
+    `<project>/.mcp.json` (for Claude Code / Cursor threads inside `bb`) + `~/.bb/AGENTS.md` (automatically populated by `setup --bb` so all provider threads in `bb` have the A4A mailbox instructions). Do NOT add A4A under `customAcpAgents` in `~/.bb/config.json`: ACP in `bb` is for LLM providers, whereas A4A is a tool/network layer.
 - **Claude Desktop**:
   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
   - macOS:   `~/Library/Application Support/Claude/claude_desktop_config.json`
