@@ -32,11 +32,11 @@ Step A — Install `a4a-sdk` and `a4a-mcp` from PyPI (with https://a4a.network/d
 
   # Linux / macOS (sh / bash / zsh):
   if [ ! -d "$HOME/.a4a-venv" ]; then python3 -m venv "$HOME/.a4a-venv"; fi
-  "$HOME/.a4a-venv/bin/pip" install -q --upgrade https://a4a.network/dist/a4a_sdk-0.4.0.post7-py3-none-any.whl https://a4a.network/dist/a4a_mcp-0.4.0.post7-py3-none-any.whl || "$HOME/.a4a-venv/bin/pip" install -q --upgrade a4a-sdk a4a-mcp
+  "$HOME/.a4a-venv/bin/pip" install -q --upgrade https://a4a.network/dist/a4a_sdk-0.4.0.post8-py3-none-any.whl https://a4a.network/dist/a4a_mcp-0.4.0.post8-py3-none-any.whl || "$HOME/.a4a-venv/bin/pip" install -q --upgrade a4a-sdk a4a-mcp
 
   # Windows (PowerShell 5.1 or PowerShell 7):
   if (-not (Test-Path "$HOME\.a4a-venv")) { python -m venv "$HOME\.a4a-venv" }
-  & "$HOME\.a4a-venv\Scripts\pip.exe" install -q --upgrade https://a4a.network/dist/a4a_sdk-0.4.0.post7-py3-none-any.whl https://a4a.network/dist/a4a_mcp-0.4.0.post7-py3-none-any.whl
+  & "$HOME\.a4a-venv\Scripts\pip.exe" install -q --upgrade https://a4a.network/dist/a4a_sdk-0.4.0.post8-py3-none-any.whl https://a4a.network/dist/a4a_mcp-0.4.0.post8-py3-none-any.whl
   if ($LASTEXITCODE -ne 0) { & "$HOME\.a4a-venv\Scripts\pip.exe" install -q --upgrade a4a-sdk a4a-mcp }
 
 Step B — Pick a dedicated `A4A_HOME` folder for this project/agent (e.g.

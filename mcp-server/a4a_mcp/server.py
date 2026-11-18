@@ -60,69 +60,86 @@ from .identity import load_or_create_identity, load_or_create_owner_identity
 DEFAULT_RELAY = "wss://eu1.a4a.network"
 
 
+def _policy_relays() -> list[str]:
+    """Read persisted active relays from `<A4A_HOME>/inbox-policy.json` if present."""
+    try:
+        policy_path = identity.IDENTITY_DIR / "inbox-policy.json"
+        if policy_path.is_file() and not policy_path.is_symlink():
+            data = json.loads(policy_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                primary = str(data.get("relay") or "").strip()
+                raw_relays = data.get("relays")
+                if isinstance(raw_relays, list):
+                    pol_relays = [
+                        str(u).strip() for u in raw_relays
+                        if isinstance(u, str) and str(u).strip()
+                    ]
+                    if pol_relays:
+                        if primary and primary != pol_relays[0]:
+                            pol_relays = [primary, *[u for u in pol_relays if u != primary]]
+                        return pol_relays
+                if primary:
+                    return [primary]
+    except Exception:
+        pass
+    return []
+
+
 def _relay_urls() -> list[str]:
-    """Return all comma-separated nodes from `A4A_RELAY`; one address preserves old behavior.
+    """Return all comma-separated nodes from `inbox-policy.json` or `A4A_RELAY`.
 
-    A4A nodes neither communicate nor replicate data: a message exists exactly where
-    it was stored. The sender places an envelope on every advertised recipient node
-    and the reader reads all of them. This is the only protection against losing
-    uncollected messages when a node fails. While the variable accepted one address,
-    the product could not provide that protection: both the tool server and receiver
-    service always constructed an agent with exactly one node.
-
-    The first address comes from `_relay_url()` rather than being parsed again. This
-    is functional rather than stylistic: tests replace `_relay_url` to route calls to
-    a fake node. Reading the environment directly would bypass that replacement and
-    silently send the call to a PRODUCTION node because the connection would succeed.
+    When `<A4A_HOME>/inbox-policy.json` defines an official 3-relay active pool
+    (`"relays": [...]`) and `A4A_RELAY` in the environment is either unset or
+    contains official `*.a4a.network` relays (e.g., an older 7-relay string from
+    `.mcp.json` or a wrapper script), the persisted policy pool wins so outbound
+    sending (`a4a_deliver` / `a4a_reply`) and `inbox-status` always use the same
+    3 active + 4 standby relay topology. Explicit non-official `A4A_RELAY`
+    overrides (such as local test relays `ws://127.0.0.1:...`) still take precedence.
     """
     raw = os.environ.get("A4A_RELAY", "")
     configured = [part.strip() for part in raw.split(",")]
     configured = [u for u in configured if u]
     first = _relay_url()
     if configured and configured[0] != first:
-        # `_relay_url` was replaced. The replacement address REPLACES the set rather
-        # than leading it. Otherwise only the first connection would be redirected,
-        # while the remaining connections used environment addresses. In tests that
-        # contacted a real second node alongside a fake first node (review finding
-        # FAN-004).
+        # `_relay_url` was replaced in a test OR policy primary overrode a legacy
+        # official A4A_RELAY list. Check if policy relays match `first`.
+        pol_relays = _policy_relays()
+        if (
+            pol_relays
+            and pol_relays[0] == first
+            and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured)
+        ):
+            return pol_relays
         return [first]
+    pol_relays = _policy_relays()
+    if (
+        len(pol_relays) >= 2
+        and pol_relays[0] == first
+        and (not configured or all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured))
+    ):
+        return pol_relays
     out = [first, *[u for u in configured[1:] if u != first]]
-    if len(out) <= 1:
-        try:
-            policy_path = identity.IDENTITY_DIR / "inbox-policy.json"
-            if policy_path.is_file() and not policy_path.is_symlink():
-                data = json.loads(policy_path.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    raw_relays = data.get("relays")
-                    if isinstance(raw_relays, list):
-                        pol_relays = [
-                            str(u).strip() for u in raw_relays
-                            if isinstance(u, str) and str(u).strip()
-                        ]
-                        if pol_relays and pol_relays[0] == first:
-                            return [first, *[u for u in pol_relays[1:] if u != first]]
-        except Exception:
-            pass
+    if len(out) <= 1 and pol_relays and pol_relays[0] == first:
+        return [first, *[u for u in pol_relays[1:] if u != first]]
     return out
 
 
 def _relay_url() -> str:
     """Return the first node, also used as the stable inbox-policy and journal key."""
+    pol_relays = _policy_relays()
     if "A4A_RELAY" in os.environ:
-        first = os.environ["A4A_RELAY"].split(",")[0].strip()
-        if not first:
+        configured = [p.strip() for p in os.environ["A4A_RELAY"].split(",") if p.strip()]
+        if not configured:
             raise ValueError("A4A_RELAY is empty; at least one node address is required")
-        return first
-    try:
-        policy_path = identity.IDENTITY_DIR / "inbox-policy.json"
-        if policy_path.is_file() and not policy_path.is_symlink():
-            data = json.loads(policy_path.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                policy_relay = str(data.get("relay") or "").strip()
-                if policy_relay:
-                    return policy_relay
-    except Exception:
-        pass
+        if (
+            pol_relays
+            and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured)
+            and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in pol_relays)
+        ):
+            return pol_relays[0]
+        return configured[0]
+    if pol_relays:
+        return pol_relays[0]
     return DEFAULT_RELAY
 
 

@@ -40,6 +40,27 @@ async def test_recipient_relay_list_is_capped():
     assert len(urls) == MAX_RECIPIENT_RELAYS, len(urls)
 
 
+async def test_official_seven_relay_list_is_capped_to_three_active_relays():
+    """A legacy 7-relay official *.a4a.network kind=10002 must resolve to the 3 active relays."""
+    official_seven = [
+        "wss://ru1.a4a.network",
+        "wss://ru2.a4a.network",
+        "wss://eu1.a4a.network",
+        "wss://eu2.a4a.network",
+        "wss://us1.a4a.network",
+        "wss://us2.a4a.network",
+        "wss://sg1.a4a.network",
+    ]
+    async with FakeRelay() as relay:
+        victim = Keys()
+        async with Agent([relay.url], keys=victim, allow_internal_relays=True) as owner, \
+                Agent([relay.url], allow_internal_relays=True) as sender:
+            await _announce(owner, victim, official_seven)
+            urls = await sender.resolve_relays(victim.pubkey_hex)
+    assert urls == official_seven[:3], urls
+
+
+
 async def test_unreachable_relays_are_walked_concurrently():
     """Traversal must cost ONE timeout rather than the sum of all timeouts.
 

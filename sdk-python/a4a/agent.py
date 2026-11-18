@@ -1740,14 +1740,15 @@ class Agent:
         Raises RelayError when no configured relay accepted the attempt.
         """
         if private:
-            if extra_relays:
+            remote_only = [u for u in extra_relays if u not in self._own_relays]
+            if remote_only:
                 inner, outer, _ = self.prepare_private_message(
                     to_pubkey, content, delivery_id=delivery_id, wrap=True,
                     conversation_id=conversation_id, reply_to=reply_to)
                 await self._broadcast(outer)
-                await self.publish_to_relays(outer, extra_relays)  # best-effort
+                await self.publish_to_relays(outer, remote_only, timeout=3.0)  # best-effort
                 return inner.id, outer
-            if keep_envelope:
+            if keep_envelope or extra_relays:
                 # Same steps as send_private_message, but keeping the published
                 # envelope: the journal stores it for an identical resend.
                 inner, outer, _ = self.prepare_private_message(
@@ -1760,8 +1761,9 @@ class Agent:
                 conversation_id=conversation_id, reply_to=reply_to), None
         ev = self._build_private_message(to_pubkey, content, delivery_id)
         await self._publish(ev)
-        if extra_relays:
-            await self.publish_to_relays(ev, extra_relays)  # best-effort
+        remote_only = [u for u in extra_relays if u not in self._own_relays]
+        if remote_only:
+            await self.publish_to_relays(ev, remote_only, timeout=3.0)  # best-effort
         return ev.id, ev
 
     async def deliver_with_ack(self, to_pubkey: str, content: str, *,
@@ -1830,6 +1832,14 @@ class Agent:
         to_pubkey = Keys.normalize_pubkey(to_pubkey)
         extra_relays = (await self.resolve_relays(to_pubkey)
                         if resolve_recipient_relays else [])
+        # When sender and recipient already share >= 2 active relays (for example,
+        # both use [ru1, ru2, eu1] or share [ru2, eu1]), messages and ACKs already
+        # cross those shared low-latency relays (backed by FanOutRelayClient standby
+        # substitution). Opening an extra unpooled connection to a non-overlapping
+        # third relay (such as us1) only introduces cross-ocean timeouts.
+        shared_relays = [u for u in extra_relays if u in self._own_relays]
+        if len(shared_relays) >= 2:
+            extra_relays = shared_relays
         # Keep one connection set open while polling. Opening every recipient relay on
         # every poll made a one-second poll interval mostly TLS/WebSocket handshakes.
         # Exact own addresses need no second client; FanOutRelayClient additionally
@@ -1902,7 +1912,7 @@ class Agent:
                         ack_query_errors += 1
                         log.warning("ACK query failed, will ask again: %s", error)
                         acks = []
-                    if recipient_ack_connected:
+                    if not acks and recipient_ack_connected:
                         try:
                             remote_acks = (await self._get_wrapped_acks(
                                                 delivery_id,
@@ -2126,6 +2136,11 @@ class Agent:
                 marker = t[2] if len(t) >= 3 else None
                 if marker in (None, "read") and _relay_url_acceptable(t[1], self._own_relays, self._allow_internal_relays):
                     urls.append(t[1])
+        # Under the 3-active + 4-standby architecture, a legacy 7-relay official
+        # kind=10002 announcement ([ru1, ru2, eu1, eu2, us1, us2, sg1]) must be
+        # capped to its first 3 active relays so senders never spill into eu2/us1.
+        if len(urls) > 3 and all(u.endswith(".a4a.network") or ".a4a.network/" in u for u in urls):
+            urls = urls[:3]
         if len(urls) > MAX_RECIPIENT_RELAYS:
             # Do not truncate silently. The recipient may have declared too many by
             # mistake, leaving some relays without delivery; operators must know.
