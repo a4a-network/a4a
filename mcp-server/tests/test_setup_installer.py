@@ -23,7 +23,7 @@ def plan_for(tmp_path, client):
         config_path=tmp_path / 'Desktop/config.json' if client == 'claude-desktop' else None)
 
 
-@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop', 'codex', 'cursor'])
+@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop', 'codex', 'cursor', 'bb'])
 def test_transaction_preserves_other_servers_backs_up_and_repeats(tmp_path, client):
     plan = plan_for(tmp_path, client)
     path = Path(plan['host_configuration']['path'])
@@ -52,7 +52,7 @@ def test_transaction_preserves_other_servers_backs_up_and_repeats(tmp_path, clie
     assert not (tmp_path / 'persistent identity').exists()
 
 
-@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop', 'codex', 'cursor'])
+@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop', 'codex', 'cursor', 'bb'])
 def test_conflict_never_replaces_existing_connection(tmp_path, client):
     plan = plan_for(tmp_path, client)
     path = Path(plan['host_configuration']['path'])
@@ -65,7 +65,7 @@ def test_conflict_never_replaces_existing_connection(tmp_path, client):
     assert path.read_bytes() == original
 
 
-@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop'])
+@pytest.mark.parametrize('client', ['claude-code', 'claude-desktop', 'bb'])
 @pytest.mark.parametrize('bad', ['1e999', '1e-999', '0.12345678901234567890123456789', 'NaN'])
 def test_claude_preserving_merge_refuses_lossy_numbers_even_when_idempotent(tmp_path, client, bad):
     plan = plan_for(tmp_path, client)
@@ -778,3 +778,60 @@ class TestMacRuntimeLockRegression(unittest.TestCase):
         self.platform.platform = 'win32'
         with patch.object(os, 'open', side_effect=AssertionError('new lock code must not run')):
             self.invoke()
+
+
+def test_detect_hosts_finds_bb_config_or_launcher_without_false_positives(tmp_path, monkeypatch):
+    from a4a_mcp.setup_hosts import detect_hosts
+    bb_dir = tmp_path / 'bb-data'
+    monkeypatch.setenv('BB_DATA_DIR', str(bb_dir))
+    monkeypatch.setattr('shutil.which', lambda cmd: None)
+    assert not any(h['client'] == 'bb' for h in detect_hosts())
+
+    bb_dir.mkdir(parents=True)
+    (bb_dir / 'config.json').write_text('{"onboardingCompleted":true}\n', encoding='utf-8')
+    detected = [h for h in detect_hosts() if h['client'] == 'bb']
+    assert len(detected) == 1
+    assert detected[0]['evidence'] == 'configuration_file'
+    assert detected[0]['config'] == str(bb_dir / 'config.json')
+
+
+def test_apply_bb_agents_instructions_backs_up_and_is_idempotent(tmp_path, monkeypatch):
+    from a4a_mcp.setup_hosts import apply_bb_agents_instructions
+    bb_dir = tmp_path / 'bb-data'
+    monkeypatch.setenv('BB_DATA_DIR', str(bb_dir))
+    agents_md = bb_dir / 'AGENTS.md'
+    bb_dir.mkdir(parents=True)
+    agents_md.write_text('# Existing Owner Rules\n\nKeep all user rules intact.\n', encoding='utf-8')
+
+    res1 = apply_bb_agents_instructions(
+        home=str(tmp_path / 'a4a-home'),
+        executable=sys.executable,
+        relay='wss://ru1.a4a.network,wss://ru2.a4a.network,wss://eu1.a4a.network',
+    )
+    assert res1['changed'] is True
+    assert res1['backup'] == str(bb_dir / 'AGENTS.md.a4a-backup')
+    assert (bb_dir / 'AGENTS.md.a4a-backup').read_text(encoding='utf-8') == '# Existing Owner Rules\n\nKeep all user rules intact.\n'
+    text1 = agents_md.read_text(encoding='utf-8')
+    assert '# Existing Owner Rules' in text1
+    assert '<!-- A4A_BB_AGENT_INSTRUCTIONS_START -->' in text1
+
+    # Second call with identical parameters is a no-op
+    res2 = apply_bb_agents_instructions(
+        home=str(tmp_path / 'a4a-home'),
+        executable=sys.executable,
+        relay='wss://ru1.a4a.network,wss://ru2.a4a.network,wss://eu1.a4a.network',
+    )
+    assert res2['changed'] is False
+    assert agents_md.read_text(encoding='utf-8') == text1
+
+    # Updating relay replaces only the bounded block and keeps the original backup intact
+    res3 = apply_bb_agents_instructions(
+        home=str(tmp_path / 'a4a-home'),
+        executable=sys.executable,
+        relay='wss://eu1.a4a.network,wss://eu2.a4a.network,wss://ru1.a4a.network',
+    )
+    assert res3['changed'] is True
+    text3 = agents_md.read_text(encoding='utf-8')
+    assert text3.count('<!-- A4A_BB_AGENT_INSTRUCTIONS_START -->') == 1
+    assert 'wss://eu2.a4a.network' in text3
+    assert (bb_dir / 'AGENTS.md.a4a-backup').read_text(encoding='utf-8') == '# Existing Owner Rules\n\nKeep all user rules intact.\n'

@@ -19,6 +19,7 @@ from .channel import ChannelAdapterError, _notification_params
 
 _TYPE = "mcp:a4a_inbox_signal"
 _QUERY_TYPE = "mcp:a4a_signal_status"
+_CAPABILITIES_TYPE = "mcp:a4a_wake_capabilities"
 _MAX_COUNTER = 2**63 - 1
 _MAX_FRAME = 4096
 _ID = re.compile(r"[A-Za-z0-9_.:-]{1,128}", re.ASCII)
@@ -34,6 +35,8 @@ _QUERY_SUCCESS = {"retained": "known", "absent": "not_found"}
 _RESPONSE_FIELDS = frozenset(("type", "requestId", "version", "signalId",
                               "success", "status", "reasonCode"))
 _DENIAL_FIELDS = frozenset(("type", "requestId", "success", "error"))
+_CAPABILITY_MODES = frozenset(("inbox", "dialogue"))
+_CAPABILITY_WAKE_LEVELS = frozenset(("connected", "idle", "cold-start", "assisted"))
 
 
 class SignalError(ValueError):
@@ -146,7 +149,7 @@ def _is_welcome(frame):
         data = _read_object(frame)
         return (data.keys() == {"type", "clientId", "message"}
                 and data["type"] == "welcome"
-                and data["message"] == "Connected to Host"
+                and data["message"] == "Connected to V2coder"
                 and _matches(_CLIENT_ID, data["clientId"]))
     except (ValueError, TypeError, RecursionError):
         return False
@@ -258,7 +261,7 @@ async def _exchange_signal(signal, *, token, endpoint, request_id, timeout,
             # all redirect following in the tested websockets implementation.
             await asyncio.get_running_loop().sock_connect(sock, ("127.0.0.1", int(match[1])))
             websocket = await connect(
-                endpoint, sock=sock, additional_headers={"X-A4A-Host-Token": token},
+                endpoint, sock=sock, additional_headers={"X-V2coder-Token": token},
                 compression=None, user_agent_header=None, ping_interval=None,
                 open_timeout=timeout, close_timeout=min(timeout, 1),
                 max_size=_MAX_FRAME, max_queue=1, logger=logger,
@@ -306,3 +309,517 @@ async def _exchange_signal(signal, *, token, endpoint, request_id, timeout,
         except Exception:
             pass
     return outcome
+
+
+@dataclass(frozen=True)
+class WakeCapabilities:
+    status: str
+    reason: str
+    modes: tuple[str, ...] = ()
+    status_query: bool = False
+    wake_levels: tuple[str, ...] = ()
+
+
+def parse_capabilities_response(frame, request_id):
+    """Parse a Host Wake Contract v1 capabilities negotiation response."""
+    _request_id(request_id)
+    invalid = WakeCapabilities("unknown", "invalid_response")
+    response_type = _CAPABILITIES_TYPE + ":response"
+    try:
+        data = _read_object(frame)
+        if data.get("type") != response_type:
+            return invalid
+        if type(data.get("requestId")) is not int or data["requestId"] != request_id:
+            return invalid
+        if (data.keys() == _DENIAL_FIELDS and data["success"] is False
+                and type(data["error"]) is str):
+            return WakeCapabilities("rejected", "access_denied")
+        if (data.keys() == {"type", "requestId", "version", "success", "status", "reasonCode"}
+                and data["version"] == "1"
+                and data["success"] is False
+                and data["status"] == "rejected"
+                and type(data["reasonCode"]) is str
+                and data["reasonCode"] in _REJECTED):
+            return WakeCapabilities("rejected", data["reasonCode"])
+        if data.keys() != {"type", "requestId", "version", "success", "capabilities"}:
+            return invalid
+        if data["version"] != "1" or data["success"] is not True:
+            return invalid
+        caps = data["capabilities"]
+        if type(caps) is not dict or caps.keys() != {"modes", "statusQuery", "wakeLevels"}:
+            return invalid
+        modes = caps["modes"]
+        status_query = caps["statusQuery"]
+        wake_levels = caps["wakeLevels"]
+        if (type(modes) is not list or not modes or len(modes) > 4
+                or any(type(m) is not str or m not in _CAPABILITY_MODES for m in modes)
+                or len(set(modes)) != len(modes)):
+            return invalid
+        if type(status_query) is not bool:
+            return invalid
+        if (type(wake_levels) is not list or not wake_levels or len(wake_levels) > 4
+                or any(type(w) is not str or w not in _CAPABILITY_WAKE_LEVELS for w in wake_levels)
+                or len(set(wake_levels)) != len(wake_levels)):
+            return invalid
+        return WakeCapabilities(
+            "supported",
+            "ok",
+            modes=tuple(modes),
+            status_query=status_query,
+            wake_levels=tuple(wake_levels),
+        )
+    except (ValueError, TypeError, RecursionError):
+        return invalid
+
+
+async def query_capabilities(*, token, endpoint="ws://127.0.0.1:9876/", request_id=1, timeout=5.0):
+    """Negotiate Host Wake Contract v1 capabilities over numeric IPv4 loopback."""
+    _request_id(request_id)
+    match = _ENDPOINT.fullmatch(endpoint) if type(endpoint) is str else None
+    if match is None or int(match[1]) > 65535:
+        raise SignalError("A4A signal: endpoint must be numeric IPv4 loopback")
+    if not _matches(_TOKEN, token):
+        raise SignalError("A4A signal: explicit header credential required")
+    if type(timeout) not in (float, int) or not 0 < timeout <= 30:
+        raise SignalError("A4A signal: timeout must be finite, positive and at most 30 seconds")
+    request = {"type": _CAPABILITIES_TYPE, "requestId": request_id, "version": "1"}
+    connect = _connect_factory()
+    logger = logging.Logger("a4a.signal.transport", level=logging.CRITICAL + 1)
+    logger.disabled = True
+    logger.propagate = False
+    sock = None
+    websocket = None
+    started = False
+    outcome = None
+    try:
+        async with asyncio.timeout(timeout):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setblocking(False)
+            await asyncio.get_running_loop().sock_connect(sock, ("127.0.0.1", int(match[1])))
+            websocket = await connect(
+                endpoint, sock=sock, additional_headers={"X-V2coder-Token": token},
+                compression=None, user_agent_header=None, ping_interval=None,
+                open_timeout=timeout, close_timeout=min(timeout, 1),
+                max_size=_MAX_FRAME, max_queue=1, logger=logger,
+            )
+            started = True
+            await websocket.send(json.dumps(request, separators=(",", ":")))
+            frame = await websocket.recv()
+            if _is_welcome(frame):
+                frame = await websocket.recv()
+            outcome = parse_capabilities_response(frame, request_id)
+            await websocket.close()
+    except TimeoutError:
+        if outcome is None:
+            outcome = WakeCapabilities("unknown" if started else "not_sent", "timeout")
+    except Exception:
+        if outcome is None:
+            outcome = WakeCapabilities("unknown" if started else "not_sent", "transport_failed")
+    finally:
+        try:
+            if websocket is not None:
+                websocket.transport.abort()
+        except Exception:
+            pass
+        try:
+            if sock is not None:
+                sock.close()
+        except Exception:
+            pass
+    return outcome
+
+
+class ReferenceHarnessConsumer:
+    """Reference Host Wake Contract v1 harness consumer and state machine.
+
+    Validates route bindings and wake-only tokens, enforces the closed metadata
+    schema, retains/coalesces signals when busy, answers status queries without
+    triggering duplicate turns, and correlates model turns with signalId.
+    """
+
+    def __init__(
+        self,
+        *,
+        routes: dict[tuple[str, str, str], str] | None = None,
+        modes: tuple[str, ...] = ("inbox", "dialogue"),
+        wake_levels: tuple[str, ...] = ("connected", "idle"),
+        status_query: bool = True,
+        busy: bool = False,
+        host_blocked: bool = False,
+    ):
+        self.routes: dict[tuple[str, str, str], str] = dict(routes or {})
+        self.modes = tuple(modes)
+        self.wake_levels = tuple(wake_levels)
+        self.status_query = bool(status_query)
+        self.busy = bool(busy)
+        self.host_blocked = bool(host_blocked)
+        self.retained_signals: dict[str, dict] = {}
+        self.turn_queue: list[str] = []
+        self.completed_turns: list[dict] = []
+        self.requests_log: list[str] = []
+
+    def register_route(self, binding: Binding, token: str) -> None:
+        if type(binding) is not Binding or not _matches(_TOKEN, token):
+            raise SignalError("invalid route registration")
+        self.routes[(binding.project_id, binding.target_session_id, binding.consumer)] = token
+
+    def clear_state_on_restart(self) -> None:
+        """Simulate a harness restart where in-memory retained signal state is lost."""
+        self.retained_signals.clear()
+        self.turn_queue.clear()
+
+    def _validate_signal_body(self, data: dict) -> tuple[str | None, dict | None]:
+        expected_keys = {
+            "type", "requestId", "version", "projectId", "targetSessionId",
+            "consumer", "signalId", "mode", "counters",
+        }
+        if data.keys() != expected_keys:
+            return "invalid_signal", None
+        if data.get("version") != "1":
+            return "unsupported_version", None
+        if not (
+            _matches(_ID, data.get("projectId"))
+            and _matches(_ID, data.get("targetSessionId"))
+            and _matches(_CONSUMER, data.get("consumer"))
+            and _matches(_SIGNAL_ID, data.get("signalId"))
+        ):
+            return "invalid_signal", None
+        mode = data.get("mode")
+        if type(mode) is not str or mode not in self.modes:
+            return "invalid_signal", None
+        counters = data.get("counters")
+        if type(counters) is not dict or counters.keys() != {
+            "pending", "seqHint", "needsReconciliation", "outgoingPrepared"
+        }:
+            return "invalid_signal", None
+        parsed_counters = {}
+        for k, v in counters.items():
+            if type(v) is not str or not re.fullmatch(r"0|[1-9][0-9]{0,18}", v):
+                return "invalid_signal", None
+            iv = int(v)
+            if not 0 <= iv <= _MAX_COUNTER:
+                return "invalid_signal", None
+            parsed_counters[k] = iv
+        if mode == "inbox" and (
+            parsed_counters["needsReconciliation"] or parsed_counters["outgoingPrepared"]
+        ):
+            return "invalid_signal", None
+        if not (
+            parsed_counters["pending"]
+            or parsed_counters["needsReconciliation"]
+            or parsed_counters["outgoingPrepared"]
+        ):
+            return "no_work", None
+        canonical = {
+            k: v for k, v in data.items() if k not in ("type", "requestId")
+        }
+        return None, canonical
+
+    def handle_frame(self, raw_frame: str, *, header_token: str | None) -> dict:
+        """Process one incoming JSON frame and return the response JSON dict."""
+        try:
+            data = _read_object(raw_frame)
+        except Exception:
+            return {
+                "type": _TYPE + ":response",
+                "requestId": 1,
+                "version": "1",
+                "signalId": "0" * 32,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "invalid_signal",
+            }
+        req_type = data.get("type")
+        req_id = data.get("requestId") if type(data.get("requestId")) is int else 1
+        self.requests_log.append(str(req_type))
+
+        if req_type == _CAPABILITIES_TYPE:
+            if not header_token or header_token not in self.routes.values():
+                return {
+                    "type": _CAPABILITIES_TYPE + ":response",
+                    "requestId": req_id,
+                    "version": "1",
+                    "success": False,
+                    "status": "rejected",
+                    "reasonCode": "not_authorized",
+                }
+            if data.keys() != {"type", "requestId", "version"}:
+                return {
+                    "type": _CAPABILITIES_TYPE + ":response",
+                    "requestId": req_id,
+                    "version": "1",
+                    "success": False,
+                    "status": "rejected",
+                    "reasonCode": "invalid_signal",
+                }
+            if data.get("version") != "1":
+                return {
+                    "type": _CAPABILITIES_TYPE + ":response",
+                    "requestId": req_id,
+                    "version": "1",
+                    "success": False,
+                    "status": "rejected",
+                    "reasonCode": "unsupported_version",
+                }
+            return {
+                "type": _CAPABILITIES_TYPE + ":response",
+                "requestId": req_id,
+                "version": "1",
+                "success": True,
+                "capabilities": {
+                    "modes": list(self.modes),
+                    "statusQuery": self.status_query,
+                    "wakeLevels": list(self.wake_levels),
+                },
+            }
+
+        resp_type = (
+            _QUERY_TYPE + ":response"
+            if req_type == _QUERY_TYPE
+            else _TYPE + ":response"
+        )
+        sig_id = data.get("signalId") if _matches(_SIGNAL_ID, data.get("signalId")) else "0" * 32
+
+        if req_type not in (_TYPE, _QUERY_TYPE):
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "invalid_signal",
+            }
+
+        err_code, canonical = self._validate_signal_body(data)
+        if err_code is not None:
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": err_code,
+            }
+
+        route_key = (
+            data["projectId"],
+            data["targetSessionId"],
+            data["consumer"],
+        )
+        if not header_token or header_token not in self.routes.values():
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "not_authorized",
+            }
+        expected_token = self.routes.get(route_key)
+        if expected_token is None:
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "unknown_pair",
+            }
+        if expected_token != header_token:
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "not_authorized",
+            }
+        if self.host_blocked:
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": False,
+                "status": "rejected",
+                "reasonCode": "host_blocked",
+            }
+
+        if req_type == _QUERY_TYPE:
+            existing = self.retained_signals.get(sig_id)
+            if existing is None:
+                return {
+                    "type": resp_type,
+                    "requestId": req_id,
+                    "version": "1",
+                    "signalId": sig_id,
+                    "success": True,
+                    "status": "absent",
+                    "reasonCode": "not_found",
+                }
+            if existing != canonical:
+                return {
+                    "type": resp_type,
+                    "requestId": req_id,
+                    "version": "1",
+                    "signalId": sig_id,
+                    "success": False,
+                    "status": "rejected",
+                    "reasonCode": "signal_id_conflict",
+                }
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": True,
+                "status": "retained",
+                "reasonCode": "known",
+            }
+
+        # _TYPE ("mcp:a4a_inbox_signal")
+        existing = self.retained_signals.get(sig_id)
+        if existing is not None:
+            if existing != canonical:
+                return {
+                    "type": resp_type,
+                    "requestId": req_id,
+                    "version": "1",
+                    "signalId": sig_id,
+                    "success": False,
+                    "status": "rejected",
+                    "reasonCode": "signal_id_conflict",
+                }
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": True,
+                "status": "duplicate",
+                "reasonCode": "already_seen",
+            }
+
+        self.retained_signals[sig_id] = canonical
+        if self.busy:
+            return {
+                "type": resp_type,
+                "requestId": req_id,
+                "version": "1",
+                "signalId": sig_id,
+                "success": True,
+                "status": "deferred",
+                "reasonCode": "busy",
+            }
+        self.turn_queue.append(sig_id)
+        return {
+            "type": resp_type,
+            "requestId": req_id,
+            "version": "1",
+            "signalId": sig_id,
+            "success": True,
+            "status": "accepted",
+            "reasonCode": "queued",
+        }
+
+    def execute_next_turn(self, drain_callback) -> dict | None:
+        """Execute one queued model turn against the local inbox and record correlation."""
+        if self.busy:
+            return None
+        if not self.turn_queue:
+            # Check if a deferred signal is retained and not yet completed
+            completed_ids = {t["signalId"] for t in self.completed_turns}
+            for sid in self.retained_signals:
+                if sid not in completed_ids:
+                    self.turn_queue.append(sid)
+                    break
+        if not self.turn_queue:
+            return None
+        sig_id = self.turn_queue.pop(0)
+        sig_body = self.retained_signals.get(sig_id, {})
+        disposition = drain_callback(sig_id, sig_body)
+        receipt = {
+            "signalId": sig_id,
+            "consumer": sig_body.get("consumer"),
+            "mode": sig_body.get("mode"),
+            "disposition": disposition,
+        }
+        self.completed_turns.append(receipt)
+        return receipt
+
+
+class ReferenceWakeAdapter:
+    """Reference loopback WebSocket server implementing Host Wake Contract v1."""
+
+    def __init__(
+        self,
+        consumer: ReferenceHarnessConsumer,
+        *,
+        port: int = 0,
+        send_welcome: bool = True,
+    ):
+        self.consumer = consumer
+        self.port = port
+        self.send_welcome = send_welcome
+        self.drop_next_ack = False
+        self._server = None
+
+    @property
+    def endpoint(self) -> str:
+        return f"ws://127.0.0.1:{self.port}/"
+
+    async def _handle_ws(self, ws):
+        if self.send_welcome:
+            await ws.send(
+                json.dumps(
+                    {
+                        "type": "welcome",
+                        "clientId": "01234567-89ab-cdef-0123-456789abcdef",
+                        "message": "Connected to V2coder",
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        raw = await ws.recv()
+        header_token = None
+        if getattr(ws, "request", None) is not None and getattr(ws.request, "headers", None) is not None:
+            header_token = ws.request.headers.get("X-V2coder-Token")
+        response = self.consumer.handle_frame(raw, header_token=header_token)
+        if self.drop_next_ack and response.get("type") == _TYPE + ":response":
+            self.drop_next_ack = False
+            return
+        await ws.send(json.dumps(response, separators=(",", ":")))
+
+    async def start(self) -> "ReferenceWakeAdapter":
+        if importlib.metadata.version("websockets") != "13.1":
+            raise SignalError("A4A signal: untested transport version; require websockets 13.1")
+        from websockets.asyncio.server import serve
+        self._server = await serve(self._handle_ws, "127.0.0.1", self.port, reuse_address=True)
+        self.port = self._server.sockets[0].getsockname()[1]
+        return self
+
+    async def close(self) -> None:
+        if self._server is not None:
+            self._server.close()
+            await self._server.wait_closed()
+            self._server = None
+
+    async def restart(self, *, clear_memory: bool = True) -> None:
+        bound_port = self.port
+        await self.close()
+        if clear_memory:
+            self.consumer.clear_state_on_restart()
+        self.port = bound_port
+        await self.start()
+
+    async def __aenter__(self) -> "ReferenceWakeAdapter":
+        return await self.start()
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.close()
+

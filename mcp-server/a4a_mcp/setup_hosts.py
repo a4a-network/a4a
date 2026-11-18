@@ -5,9 +5,24 @@ from pathlib import Path
 import shutil
 import time
 
-from .onboarding import connection_plan, merge_host_config, validate_json_config
+from .onboarding import bb_agents_markdown, connection_plan, merge_host_config, validate_json_config
 from .profile_lock import profile_lock
 from .setup_storage import checked_path, private_directory, read_regular, digest, atomic_private_write, write_json
+
+
+def bb_data_dir():
+    raw = os.environ.get('BB_DATA_DIR', '').strip()
+    if raw:
+        return Path(raw)
+    return Path.home() / '.bb'
+
+
+def bb_config_path():
+    return bb_data_dir() / 'config.json'
+
+
+def bb_launcher_path():
+    return bb_data_dir() / ('bin/bb.cmd' if os.name == 'nt' else 'bin/bb')
 
 
 def detect_hosts():
@@ -15,12 +30,22 @@ def detect_hosts():
     for client, family, command in [('claude-code', 'claude', 'claude'),
                                      ('codex', 'codex', 'codex'),
                                      ('cursor', 'cursor', 'cursor'),
+                                     ('bb', 'bb', 'bb'),
                                      ('kimi', 'kimi', 'kimi'),
                                      ('agy', 'gemini', 'agy')]:
         executable = shutil.which(command)
         if executable:
             result.append({'client': client, 'family': family, 'executable': executable,
                            'evidence': 'launcher_on_path', 'native_verified': False})
+    if not any(h['client'] == 'bb' for h in result):
+        bb_exe = bb_launcher_path()
+        bb_cfg = bb_config_path()
+        if bb_exe.is_file():
+            result.append({'client': 'bb', 'family': 'bb', 'executable': str(bb_exe),
+                           'evidence': 'launcher_on_path', 'native_verified': False})
+        elif bb_cfg.is_file():
+            result.append({'client': 'bb', 'family': 'bb', 'config': str(bb_cfg),
+                           'evidence': 'configuration_file', 'native_verified': False})
     config = desktop_config_path()
     if config is not None and config.is_file():
         result.append({'client': 'claude-desktop', 'family': 'claude',
@@ -62,18 +87,60 @@ def host_plan(*, client, python, home, project, relay, consumer, config_path=Non
 
 
 def merge_proposal(plan, existing):
-    if plan['client'] in ('claude-desktop', 'claude-code'):
+    if plan['client'] in ('claude-desktop', 'claude-code', 'bb'):
         # Use the exact same strict JSON preservation logic; only the entry differs.
         data = validate_json_config(existing)
         if not isinstance(data, dict) or not isinstance(data.get('mcpServers', {}), dict):
-            raise ValueError('invalid Claude configuration')
+            raise ValueError('invalid Claude/bb configuration')
         if 'a4a' in data.get('mcpServers', {}):
             if data['mcpServers']['a4a'] != plan['mcp_server']:
-                raise ValueError('existing Claude A4A entry differs; no replacement performed')
+                raise ValueError('existing Claude/bb A4A entry differs; no replacement performed')
             return existing
         data.setdefault('mcpServers', {})['a4a'] = plan['mcp_server']
         return json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
     return merge_host_config(plan, existing)
+
+
+_BB_START = '<!-- A4A_BB_AGENT_INSTRUCTIONS_START -->'
+_BB_END = '<!-- A4A_BB_AGENT_INSTRUCTIONS_END -->'
+
+
+def merge_bb_agents_md(existing_text, block):
+    """Idempotently insert or update the A4A instruction block in AGENTS.md."""
+    if not isinstance(existing_text, str):
+        raise ValueError('AGENTS.md content must be a string')
+    clean_block = block.strip() + '\n'
+    if _BB_START in existing_text and _BB_END in existing_text:
+        start_idx = existing_text.index(_BB_START)
+        end_idx = existing_text.index(_BB_END, start_idx) + len(_BB_END)
+        if end_idx < len(existing_text) and existing_text[end_idx:end_idx + 1] == '\n':
+            end_idx += 1
+        return existing_text[:start_idx] + clean_block + existing_text[end_idx:]
+    if not existing_text.strip():
+        return clean_block
+    sep = '\n' if existing_text.endswith('\n\n') else ('\n\n' if not existing_text.endswith('\n') else '\n')
+    return existing_text + sep + clean_block
+
+
+def apply_bb_agents_instructions(*, home, executable, relay, target_path=None):
+    """Write or update the A4A instruction block in bb's AGENTS.md with backup."""
+    dest = checked_path(target_path if target_path is not None else (bb_data_dir() / 'AGENTS.md'))
+    block = bb_agents_markdown(home=home, executable=executable, relay=relay)
+    existing_bytes = read_regular(dest) if dest.exists() else None
+    existing_text = existing_bytes.decode('utf-8') if existing_bytes is not None else ''
+    updated_text = merge_bb_agents_md(existing_text, block)
+    updated_bytes = updated_text.encode('utf-8')
+    if existing_bytes == updated_bytes:
+        return {'path': str(dest), 'changed': False, 'backup': None}
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    backup_path = None
+    if existing_bytes is not None:
+        backup = dest.with_name(dest.name + '.a4a-backup')
+        if not backup.exists():
+            atomic_private_write(backup, existing_bytes)
+        backup_path = str(backup)
+    atomic_private_write(dest, updated_bytes)
+    return {'path': str(dest), 'changed': True, 'backup': backup_path}
 
 
 def apply_file_plan(plan, state_root, *, expected_hash=None):

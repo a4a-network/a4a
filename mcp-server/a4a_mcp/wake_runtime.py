@@ -2,7 +2,10 @@
 import asyncio
 import os
 from pathlib import Path
+import re
+import shutil
 import stat
+import subprocess
 import time
 
 from a4a import keyfile
@@ -10,8 +13,145 @@ from a4a.inbox import InboxError, InboxPolicyChanged
 from a4a.inbox_receiver import InboxReceiver, authorized_sender_keys
 
 from . import inbox_runtime
-from .host_signal import Binding, Outcome, SignalError, send_signal, query_signal, _TOKEN, _ENDPOINT
+from .setup_hosts import bb_launcher_path
+from .setup_storage import checked_path, child_environment
+from .host_signal import (
+    Binding,
+    Outcome,
+    SignalError,
+    send_signal,
+    query_signal,
+    query_capabilities,
+    _TOKEN,
+    _ENDPOINT,
+)
 from .wake_journal import WakeJournal, WakeBlocked, journal_status
+
+_BB_SAFE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,96}$")
+
+
+def resolve_bb_executable(explicit=None):
+    """Locate the verified local bb CLI launcher without guessing remote paths."""
+    if explicit is not None:
+        exe = checked_path(Path(explicit))
+        if not exe.is_file():
+            raise InboxError("bb executable does not exist")
+        return exe
+    on_path = shutil.which("bb")
+    if on_path:
+        return checked_path(Path(on_path))
+    launcher = bb_launcher_path()
+    if launcher.is_file():
+        return checked_path(launcher)
+    raise InboxError(
+        "bb CLI executable not found; install it in bb (Settings -> General -> Command line) "
+        "or pass --bb-executable"
+    )
+
+
+def format_bb_wake_message(signal):
+    """Format a strictly metadata-only wake hint for a bb thread queue.
+
+    Never includes letter bodies, previews, sender keys, URLs, or secrets.
+    """
+    signal_id = str(getattr(signal, "signal_id", "") or "")
+    project_id = str(getattr(signal, "project_id", "") or "")
+    target_session_id = str(getattr(signal, "target_session_id", "") or "")
+    consumer = str(getattr(signal, "consumer", "") or "")
+    mode = str(getattr(signal, "mode", "inbox") or "inbox")
+    pending = getattr(signal, "pending", 0)
+    seq_hint = getattr(signal, "seq_hint", 0)
+    if (
+        not _BB_SAFE_ID.fullmatch(signal_id)
+        or not _BB_SAFE_ID.fullmatch(project_id)
+        or not _BB_SAFE_ID.fullmatch(target_session_id)
+        or not _BB_SAFE_ID.fullmatch(consumer)
+        or mode not in ("inbox", "dialogue")
+        or type(pending) is not int
+        or pending < 0
+        or type(seq_hint) is not int
+        or seq_hint < 0
+    ):
+        raise SignalError("invalid metadata fields in bb wake signal")
+    return (
+        f"[A4A Wake v1] signal_id={signal_id} project={project_id} "
+        f"session={target_session_id} consumer={consumer} mode={mode} "
+        f"pending={pending} seq_hint={seq_hint}. "
+        "Inspect local A4A queue via a4a_inbox_next."
+    )
+
+
+async def send_bb_cli_signal(
+    signal,
+    *,
+    token="",
+    endpoint="",
+    before_send=None,
+    bb_executable=None,
+    timeout=10.0,
+):
+    """Enqueue a metadata-only wake hint into a bb thread via the local bb CLI."""
+    msg = format_bb_wake_message(signal)
+    exe = resolve_bb_executable(bb_executable)
+    if before_send is not None and not before_send():
+        return Outcome("not_sent", "preflight_failed")
+    argv = [str(exe), "thread", "send", str(signal.target_session_id), msg]
+    env = child_environment({})
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            argv,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return Outcome("unknown", "transport_timeout")
+    except OSError:
+        return Outcome("unknown", "transport_failed")
+    combined = ((proc.stdout or "") + "\n" + (proc.stderr or "")).lower()
+    if proc.returncode == 0:
+        if "thread-busy" in combined or "queued" in combined or "sending after" in combined:
+            return Outcome("deferred", "bb_thread_busy")
+        return Outcome("accepted", "bb_cli_queued")
+    if "not found" in combined or "unknown thread" in combined or "invalid" in combined:
+        return Outcome("rejected", "bb_target_rejected")
+    return Outcome("unknown", "bb_cli_nonzero")
+
+
+async def query_bb_cli_signal(
+    signal,
+    *,
+    token="",
+    endpoint="",
+    before_send=None,
+    bb_executable=None,
+    timeout=10.0,
+):
+    """Query a bb thread queue for a previously submitted signal_id without creating a turn."""
+    format_bb_wake_message(signal)
+    exe = resolve_bb_executable(bb_executable)
+    argv = [str(exe), "thread", "queue", "list", str(signal.target_session_id)]
+    env = child_environment({})
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            argv,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return Outcome("unknown", "transport_failed")
+    if proc.returncode != 0:
+        return Outcome("absent", "bb_queue_unchecked")
+    if str(signal.signal_id) in (proc.stdout or ""):
+        return Outcome("retained", "bb_queue_retained")
+    return Outcome("absent", "bb_queue_absent")
 
 
 def read_token_file(value):
@@ -97,18 +237,30 @@ class WakeRunner:
             raise WakeBlocked("host rejected wake; inspect inbox-status and resume only after correction")
 
 
-async def run_wake(project_id, target_session_id, token_file, *, endpoint="ws://127.0.0.1:9876/",
-                   once=False, duration=3600, forever=False, resume=False):
+async def run_wake(project_id, target_session_id, token_file=None, *, endpoint="ws://127.0.0.1:9876/",
+                   once=False, duration=3600, forever=False, resume=False,
+                   adapter="loopback", bb_executable=None):
     """Explicit local runner; no service installation or host credential issuance."""
     if type(once) is not bool or type(forever) is not bool or type(resume) is not bool or (once and forever):
         raise InboxError("invalid host wake lifetime")
     if type(duration) is not int or not 1 <= duration <= 86400:
         raise InboxError("host wake duration must be 1..86400 seconds")
-    match = _ENDPOINT.fullmatch(endpoint) if type(endpoint) is str else None
-    if not match or int(match[1]) > 65535:
-        raise InboxError("host wake requires numeric IPv4 loopback")
-    # Fail before opening a profile/receiver when a credential file isn't usable.
-    read_token_file(token_file)
+    if adapter not in ("loopback", "bb-cli"):
+        raise InboxError("unsupported wake adapter: choose loopback or bb-cli")
+    if adapter == "bb-cli":
+        resolved_bb = resolve_bb_executable(bb_executable)
+        token_loader = lambda: "bb-local-cli"
+        send_fn = lambda sig, **kw: send_bb_cli_signal(sig, bb_executable=resolved_bb, **kw)
+        query_fn = lambda sig, **kw: query_bb_cli_signal(sig, bb_executable=resolved_bb, **kw)
+    else:
+        match = _ENDPOINT.fullmatch(endpoint) if type(endpoint) is str else None
+        if not match or int(match[1]) > 65535:
+            raise InboxError("host wake requires numeric IPv4 loopback")
+        # Fail before opening a profile/receiver when a credential file isn't usable.
+        read_token_file(token_file)
+        token_loader = lambda: read_token_file(token_file)
+        send_fn = send_signal
+        query_fn = query_signal
     with inbox_runtime.open_runtime() as (policy, agent, store):
         binding = Binding(project_id, target_session_id, policy.consumer)
         receiver = InboxReceiver(agent, store,
@@ -142,7 +294,9 @@ async def run_wake(project_id, target_session_id, token_file, *, endpoint="ws://
                     journal.resume()
                 worker = WakeRunner(journal,
                     current_senders,
-                    lambda: read_token_file(token_file),
+                    token_loader,
+                    send=send_fn,
+                    query=query_fn,
                     interval=policy.notify_interval, per_hour=policy.notify_per_hour)
             await worker.tick()
 
@@ -157,3 +311,19 @@ async def run_wake(project_id, target_session_id, token_file, *, endpoint="ws://
             # record for a status query on restart, never an automatic action replay.
             pass
         return journal_status(store)
+
+
+async def check_wake_capabilities(token_file, *, endpoint="ws://127.0.0.1:9876/", timeout=5.0):
+    """Negotiate Host Wake Contract v1 capabilities without touching mailbox state."""
+    match = _ENDPOINT.fullmatch(endpoint) if type(endpoint) is str else None
+    if not match or int(match[1]) > 65535:
+        raise InboxError("host wake requires numeric IPv4 loopback")
+    token = read_token_file(token_file)
+    caps = await query_capabilities(token=token, endpoint=endpoint, timeout=timeout)
+    return {
+        "state": caps.status,
+        "reason": caps.reason,
+        "modes": list(caps.modes),
+        "status_query": caps.status_query,
+        "wake_levels": list(caps.wake_levels),
+    }

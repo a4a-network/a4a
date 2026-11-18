@@ -432,9 +432,13 @@ async def reconcile_relay_failover(
             ev_id = None
             broadcast_urls = list(dict.fromkeys([*effective, *standby, *active]))
             keys = _existing_keys()
+            prev_10002_ts = int(st.get("last_10002_created_at") or int(time.time()))
             async with Agent(broadcast_urls, keys=keys, relay_health_file=relay_health_file_path()) as pub_agent:
+                pub_agent._last_addressable["replaceable:10002"] = prev_10002_ts
                 ev_id = await pub_agent.publish_relay_list(effective)
+                new_10002_ts = pub_agent._last_addressable.get("replaceable:10002", prev_10002_ts + 1)
             st = _read_relay_health_data()
+            st["last_10002_created_at"] = new_10002_ts
             st["promoted_relays"] = {
                 "active": True,
                 "promoted_at": round(ts, 3),
@@ -460,9 +464,13 @@ async def reconcile_relay_failover(
             ev_id = None
             broadcast_urls = list(dict.fromkeys([*active, *standby]))
             keys = _existing_keys()
+            prev_10002_ts = int(st.get("last_10002_created_at") or int(time.time()))
             async with Agent(broadcast_urls, keys=keys, relay_health_file=relay_health_file_path()) as pub_agent:
+                pub_agent._last_addressable["replaceable:10002"] = prev_10002_ts
                 ev_id = await pub_agent.publish_relay_list(active)
+                new_10002_ts = pub_agent._last_addressable.get("replaceable:10002", prev_10002_ts + 1)
             st = _read_relay_health_data()
+            st["last_10002_created_at"] = new_10002_ts
             st["promoted_relays"] = {
                 "active": False,
                 "promoted_at": None,

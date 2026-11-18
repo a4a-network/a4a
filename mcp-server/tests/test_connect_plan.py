@@ -69,7 +69,7 @@ def test_host_executable_is_not_guessed_for_other_clients(tmp_path):
         plan(tmp_path, client="generic", host_executable=sys.executable)
 
 
-@pytest.mark.parametrize("client", ["codex", "cursor", "generic"])
+@pytest.mark.parametrize("client", ["codex", "cursor", "bb", "generic"])
 def test_other_clients_do_not_get_an_invented_global_registration_command(tmp_path, client):
     result = plan(tmp_path, client=client)
     assert result["registration"] is None
@@ -77,7 +77,7 @@ def test_other_clients_do_not_get_an_invented_global_registration_command(tmp_pa
     assert result["automatic_delivery"] == "requires_host_acceptance"
 
 
-@pytest.mark.parametrize("client", ["codex", "cursor"])
+@pytest.mark.parametrize("client", ["codex", "cursor", "bb"])
 def test_host_config_roundtrips_paths_without_shell_interpolation(tmp_path, client):
     # Even shell-sensitive characters remain plain config data, never shell code.
     root = tmp_path / "space & dollar$ `tick` apostrophe' unicode-\u0430\u0433\u0435\u043d\u0442-🤖"
@@ -90,15 +90,20 @@ def test_host_config_roundtrips_paths_without_shell_interpolation(tmp_path, clie
         parsed = tomllib.loads(config["content"])["mcp_servers"]["a4a"]
         assert config["path"] == str(tmp_path / "project/.codex/config.toml")
         assert config["requires_project_trust"] is True
-    else:
+    elif client == "cursor":
         parsed = json.loads(config["content"])["mcpServers"]["a4a"]
         assert parsed.pop("type") == "stdio"
         assert config["path"] == str(tmp_path / "project/.cursor/mcp.json")
+    else:
+        parsed = json.loads(config["content"])["mcpServers"]["a4a"]
+        assert config["path"] == str(tmp_path / "project/.mcp.json")
+        assert config["bb_agents_instructions"]["workspace_path"] == str(tmp_path / "project/.bb/AGENTS.md")
+        assert "A4A_BB_AGENT_INSTRUCTIONS_START" in config["bb_agents_instructions"]["content"]
     assert parsed == result["mcp_server"]
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("client", ["codex", "cursor"])
+@pytest.mark.parametrize("client", ["codex", "cursor", "bb"])
 def test_merge_preserves_existing_servers_and_settings_and_is_idempotent(tmp_path, client):
     from a4a_mcp.onboarding import merge_host_config
     result = plan(tmp_path, client=client)
@@ -117,7 +122,7 @@ def test_merge_preserves_existing_servers_and_settings_and_is_idempotent(tmp_pat
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("client", ["codex", "cursor"])
+@pytest.mark.parametrize("client", ["codex", "cursor", "bb"])
 def test_merge_refuses_to_replace_a_different_existing_identity(tmp_path, client):
     from a4a_mcp.onboarding import merge_host_config
     result = plan(tmp_path, client=client)
@@ -251,12 +256,13 @@ cli_main()
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("client", ["codex", "cursor"])
+@pytest.mark.parametrize("client", ["codex", "cursor", "bb"])
 def test_cli_config_is_parseable_utf8_and_never_changes_existing_files(tmp_path, client):
     project = tmp_path / "target project"
     project.mkdir()
-    config_path = project / (".codex/config.toml" if client == "codex" else ".cursor/mcp.json")
-    config_path.parent.mkdir()
+    rel = ".codex/config.toml" if client == "codex" else (".cursor/mcp.json" if client == "cursor" else ".mcp.json")
+    config_path = project / rel
+    config_path.parent.mkdir(exist_ok=True)
     existing = b"owner configuration sentinel; do not overwrite"
     config_path.write_bytes(existing)
     private_home = tmp_path / "private 'owner' $state \u0430\u0433\u0435\u043d\u0442 🤖"

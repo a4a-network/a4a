@@ -17,7 +17,7 @@ def parser():
     root = argparse.ArgumentParser(prog='a4a-mcp', allow_abbrev=False)
     commands = root.add_subparsers(dest='operation', required=True)
     connect = commands.add_parser('connect', allow_abbrev=False)
-    connect.add_argument('--client', choices=['claude-code', 'claude-desktop', 'codex', 'cursor'])
+    connect.add_argument('--client', choices=['claude-code', 'claude-desktop', 'codex', 'cursor', 'bb'])
     connect.add_argument('--project', type=Path, default=Path.cwd())
     connect.add_argument('--bundle', type=Path)
     connect.add_argument('--bundle-sha256')

@@ -147,13 +147,13 @@ def _connect_plan(argv):
     from pathlib import Path
     from .onboarding import connection_plan
     parser = argparse.ArgumentParser(prog="python -m a4a_mcp connect-plan", allow_abbrev=False)
-    parser.add_argument("--client", required=True, choices=("claude-code", "codex", "cursor", "kimi", "kimi-code", "gemini", "antigravity", "agy", "generic"))
+    parser.add_argument("--client", required=True, choices=("claude-code", "codex", "cursor", "bb", "kimi", "kimi-code", "gemini", "antigravity", "agy", "generic"))
     parser.add_argument("--home", required=True)
     parser.add_argument("--relay", required=True)
     parser.add_argument("--consumer", required=True)
     parser.add_argument("--host-executable")
     parser.add_argument("--format", choices=("json", "config"), default="json",
-                        help="JSON plan, or a project configuration fragment for Codex/Cursor")
+                        help="JSON plan, or a project configuration fragment for Codex/Cursor/bb")
     args = parser.parse_args(argv)
     try:
         result = connection_plan(client=args.client, home=args.home, relay=args.relay,
@@ -164,7 +164,7 @@ def _connect_plan(argv):
     if args.format == "config":
         config = result["host_configuration"]
         if config is None:
-            raise SystemExit("A4A connection plan: --format config requires codex or cursor")
+            raise SystemExit("A4A connection plan: --format config requires codex, cursor, or bb")
         # Configuration files use UTF-8, including on Windows with a legacy console codepage.
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
@@ -963,8 +963,12 @@ def _wake_admin(argv):
     run = commands.add_parser("wake-run", allow_abbrev=False)
     run.add_argument("--project-id", required=True)
     run.add_argument("--target-session-id", required=True)
-    run.add_argument("--token-file", required=True,
-                     help="absolute private wake-only credential file; never pass the token itself")
+    run.add_argument("--token-file", default=None,
+                     help="absolute private wake-only credential file; required for loopback adapter")
+    run.add_argument("--adapter", choices=("loopback", "bb-cli"), default="loopback",
+                     help="host wake adapter: loopback (default) or bb-cli (local bb thread queue)")
+    run.add_argument("--bb-executable", default=None,
+                     help="optional explicit path to the local bb CLI executable when --adapter bb-cli is used")
     run.add_argument("--endpoint", default="ws://127.0.0.1:9876/")
     run.add_argument("--resume-rejected", action="store_true",
                      help="explicitly resume a corrected persistent rejection; changes no permissions")
@@ -984,9 +988,12 @@ def _wake_admin(argv):
                 check_wake_capabilities(args.token_file, endpoint=args.endpoint)
             )
         else:
+            if args.adapter == "loopback" and not args.token_file:
+                raise ValueError("--token-file is required when --adapter loopback is used")
             result = asyncio.run(run_wake(args.project_id, args.target_session_id,
                 args.token_file, endpoint=args.endpoint, once=args.once,
-                duration=args.duration, forever=args.forever, resume=args.resume_rejected))
+                duration=args.duration, forever=args.forever, resume=args.resume_rejected,
+                adapter=args.adapter, bb_executable=args.bb_executable))
     except (InboxError, ValueError) as exc:
         raise SystemExit(f"A4A host wake: {exc}") from None
     print(json.dumps(result), flush=True)
@@ -1171,6 +1178,8 @@ def _onboarding_cli(argv: list[str]) -> None:
                          help="Comma-separated relay URLs (at least 2 required unless --allow-single-relay is passed)")
     setup_p.add_argument("--allow-single-relay", action="store_true",
                          help="Explicitly allow configuring only 1 relay (e.g., an intentional single private relay)")
+    setup_p.add_argument("--bb", action="store_true",
+                         help="Also configure bb (getbb.app) AGENTS.md so all bb provider threads know their A4A mailbox")
 
     allow_p = sub.add_parser("allow-peer", description="Add one or more apub1.../hex peers to allowed_peers and import any waiting letters from them.")
     allow_p.add_argument("peers", nargs="+", help="Peer apub1... or 64-hex address(es)")
@@ -1261,6 +1270,15 @@ def _onboarding_cli(argv: list[str]) -> None:
         warn = inbox_runtime.relay_redundancy_warning(policy.relays)
         if warn:
             out["relay_redundancy_warning"] = warn
+        from .setup_hosts import apply_bb_agents_instructions, bb_config_path, bb_launcher_path
+        if args.bb or bb_config_path().is_file() or bb_launcher_path().is_file():
+            with contextlib.suppress(Exception):
+                bb_res = apply_bb_agents_instructions(
+                    home=str(identity.IDENTITY_DIR),
+                    executable=sys.executable,
+                    relay=",".join(policy.relays),
+                )
+                out["bb_agents_md"] = bb_res
         emit(out)
         return
 

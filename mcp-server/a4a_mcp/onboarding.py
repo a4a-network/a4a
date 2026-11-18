@@ -44,6 +44,30 @@ def _relay(value):
     return value
 
 
+def bb_agents_markdown(home, executable, relay):
+    """Return a non-secret, idempotent A4A instruction block for bb AGENTS.md."""
+    py = str(executable)
+    hm = str(home)
+    rl = str(relay)
+    return (
+        "<!-- A4A_BB_AGENT_INSTRUCTIONS_START -->\n"
+        "## A4A Network Mailbox (bb Integration)\n\n"
+        f"- **A4A_HOME**: `{hm}`\n"
+        f"- **A4A_RELAY**: `{rl}`\n"
+        f"- **Python / CLI**: `\"{py}\" -I -m a4a_mcp`\n\n"
+        "You are connected to the A4A E2EE agent network. Do NOT configure A4A as a custom ACP "
+        "provider in `config.json`; use the `a4a_*` MCP tools (if loaded) or run the CLI directly:\n\n"
+        "```bash\n"
+        f"A4A_HOME=\"{hm}\" \"{py}\" -I -m a4a_mcp address\n"
+        f"A4A_HOME=\"{hm}\" \"{py}\" -I -m a4a_mcp inbox-watch --once\n"
+        f"A4A_HOME=\"{hm}\" \"{py}\" -I -m a4a_mcp inbox-next\n"
+        f"A4A_HOME=\"{hm}\" \"{py}\" -I -m a4a_mcp reply --seq <SEQ> --text \"...\"\n"
+        f"A4A_HOME=\"{hm}\" \"{py}\" -I -m a4a_mcp deliver --to <APUB> --new-letter --text \"...\"\n"
+        "```\n"
+        "<!-- A4A_BB_AGENT_INSTRUCTIONS_END -->\n"
+    )
+
+
 def _host_config(client, project, entry):
     """Serialize project-local configuration, without reading or writing settings."""
     if client == "codex":
@@ -62,15 +86,23 @@ def _host_config(client, project, entry):
         content = json.dumps({"mcpServers": {"a4a": entry}},
                              ensure_ascii=False, indent=2) + "\n"
         path, format_name = project / ".kimi-code/mcp.json", "json"
-    elif client in {"gemini", "antigravity", "agy"}:
+    elif client in {"gemini", "antigravity", "agy", "bb"}:
         content = json.dumps({"mcpServers": {"a4a": entry}},
                              ensure_ascii=False, indent=2) + "\n"
         path, format_name = project / ".mcp.json", "json"
     else:
         return None
-    return {"path": str(path), "format": format_name, "content": content,
-            "scope": "project", "operation": "merge_missing_a4a_only",
-            "requires_project_trust": client == "codex"}
+    out = {"path": str(path), "format": format_name, "content": content,
+           "scope": "project", "operation": "merge_missing_a4a_only",
+           "requires_project_trust": client == "codex"}
+    if client == "bb":
+        out["bb_agents_instructions"] = {
+            "workspace_path": str(project / ".bb/AGENTS.md"),
+            "content": bb_agents_markdown(
+                entry["env"]["A4A_HOME"], entry["command"], entry["env"]["A4A_RELAY"]
+            ),
+        }
+    return out
 
 
 def merge_host_config(plan, existing_text):
@@ -141,7 +173,7 @@ def validate_json_config(text):
 
 def connection_plan(*, client, home, project, relay, consumer, executable, host_executable=None):
     """Pure preparation from explicit inputs; do not resolve paths or inspect keys."""
-    if client not in {"claude-code", "codex", "cursor", "kimi", "kimi-code", "gemini", "antigravity", "agy", "generic"}:
+    if client not in {"claude-code", "codex", "cursor", "bb", "kimi", "kimi-code", "gemini", "antigravity", "agy", "generic"}:
         raise ValueError("unsupported client")
     if type(consumer) is not str or re.fullmatch(r"[A-Za-z0-9_.:-]{1,96}", consumer) is None:
         raise ValueError("consumer must be an explicit bounded local identifier")
