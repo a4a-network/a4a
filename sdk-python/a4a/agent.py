@@ -1555,12 +1555,26 @@ class Agent:
         else:
             batches = [await self._all_pages(source, flt)]
         wraps = list({gw.id: gw for batch in batches for gw in batch}.values())
+        cache = getattr(self, "_unwrapped_cache", None)
+        if cache is None:
+            cache = {}
+            self._unwrapped_cache = cache
         inners = []
         for gw in wraps:
-            try:
-                inners.append(giftwrap.unwrap(gw, self.keys))
-            except giftwrap.GiftWrapError:
+            if gw.id in cache:
+                cached = cache[gw.id]
+                if cached is not None:
+                    inners.append(cached)
                 continue
+            try:
+                inner = giftwrap.unwrap(gw, self.keys)
+            except giftwrap.GiftWrapError:
+                cache[gw.id] = None
+                continue
+            if len(cache) >= 4096:
+                cache.pop(next(iter(cache)))
+            cache[gw.id] = inner
+            inners.append(inner)
         return inners
 
     #: Pages one inbox read may take before it gives up loudly instead of returning a part.
@@ -1865,9 +1879,11 @@ class Agent:
         delivery_id = uuid.uuid4().hex
         last_id = ""
         attempts = 0
-        # Search ACKs from delivery start, adjusted for envelope timestamp jitter.
-        # Without the window every poll downloads the full inbox (S3).
-        started_at = int(time.time()) - giftwrap._JITTER_SECONDS
+        # Search ACKs from delivery start (with 60s clock-skew margin); `_unwrap_inbox`
+        # itself expands `since` by `giftwrap._JITTER_SECONDS` (24h). Subtracting
+        # `_JITTER_SECONDS` here as well doubled the read window to 48h (~1.8 MB per
+        # relay for active hub mailboxes).
+        started_at = int(time.time()) - 60
         if outbox is not None:
             outbox.start(delivery_id, to_pubkey, private=private, since=started_at)
         published = False
