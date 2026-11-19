@@ -1925,6 +1925,28 @@ def status():
         result["delivery_capabilities"] = delivery_capabilities(result)
         result["readiness"] = readiness(
             result, allowed_peer_count=len(policy.allowed_peers) + len(policy.allowed_owners))
+        _maybe_refresh_signed_advisory_from_dist(store)
+        with contextlib.suppress(Exception):
+            adv_row = store.db.execute(
+                "SELECT value FROM metadata WHERE key = 'latest_signed_advisory_json'"
+            ).fetchone()
+            if adv_row and adv_row[0]:
+                from a4a.advisory import verify_release_advisory
+                meta = json.loads(adv_row[0])
+                trusted = meta.get("trusted_pubkeys")
+                inst_ver, inst_build = _installed_version_and_build()
+                cur_ver = meta.get("current_version") or inst_ver
+                cur_build = meta.get("current_build_id") if meta.get("current_build_id") else (
+                    inst_build if cur_ver == inst_ver else ""
+                )
+                adv = verify_release_advisory(
+                    meta["event"],
+                    current_version=cur_ver,
+                    current_build_id=cur_build,
+                    trusted_pubkeys=frozenset(trusted) if trusted else None,
+                )
+                if adv.get("update_available"):
+                    result["update_advisory"] = adv
         return result
 
 
@@ -2049,6 +2071,66 @@ def _with_unknown_notice(result, store):
     return result
 
 
+def _installed_version_and_build() -> tuple[str, str]:
+    """Return `(base_version, full_build_id)` of the installed `a4a-mcp` / `a4a-sdk` package."""
+    import importlib.metadata
+    for pkg in ("a4a-mcp", "a4a-sdk"):
+        with contextlib.suppress(Exception):
+            ver = str(importlib.metadata.version(pkg)).strip()
+            if ver:
+                base = ver.split(".post", 1)[0]
+                return base, ver
+    return "0.4.0", "0.4.0"
+
+
+def _maybe_refresh_signed_advisory_from_dist(store) -> None:
+    """Refresh `latest_signed_advisory_json` from `OFFICIAL_ADVISORY_URL` at most once every 6h on official relays."""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return
+    try:
+        pol = load_policy()
+        if pol is None or pol.relay not in _OFFICIAL_A4A_RELAYS:
+            return
+        now = time.time()
+        ts_row = store.db.execute(
+            "SELECT value FROM metadata WHERE key = 'last_advisory_fetch_ts'"
+        ).fetchone()
+        if ts_row and ts_row[0]:
+            with contextlib.suppress(Exception):
+                if now - float(ts_row[0]) < 6 * 3600:
+                    return
+        with store.db:
+            store.db.execute(
+                "INSERT OR REPLACE INTO metadata(key, value) VALUES ('last_advisory_fetch_ts', ?)",
+                (str(round(now, 1)),),
+            )
+        import urllib.request
+        from a4a.advisory import OFFICIAL_ADVISORY_URL, OFFICIAL_RELEASE_SIGNING_PUBKEYS, verify_release_advisory
+        from a4a.event import Event
+        inst_ver, inst_build = _installed_version_and_build()
+        req = urllib.request.Request(
+            OFFICIAL_ADVISORY_URL,
+            headers={"User-Agent": f"a4a-mcp/{inst_build or inst_ver}"},
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            raw_json = json.loads(resp.read().decode("utf-8"))
+            web_ev = Event.model_validate(raw_json)
+            if web_ev.verify() and web_ev.pubkey in OFFICIAL_RELEASE_SIGNING_PUBKEYS:
+                verify_release_advisory(web_ev, current_version=inst_ver, current_build_id=inst_build)
+                payload = {
+                    "event": web_ev.model_dump(),
+                    "current_version": inst_ver,
+                    "current_build_id": inst_build,
+                }
+                with store.db:
+                    store.db.execute(
+                        "INSERT OR REPLACE INTO metadata(key, value) VALUES ('latest_signed_advisory_json', ?)",
+                        (json.dumps(payload, ensure_ascii=False),),
+                    )
+    except Exception:
+        pass
+
+
 def _attach_lifecycle_hints(result: dict, store) -> None:
     """Attach one-time verified update advisories and community star hint without spam."""
     from a4a.advisory import (
@@ -2056,6 +2138,7 @@ def _attach_lifecycle_hints(result: dict, store) -> None:
         build_community_star_hint,
         verify_release_advisory,
     )
+    _maybe_refresh_signed_advisory_from_dist(store)
     try:
         adv_row = store.db.execute(
             "SELECT value FROM metadata WHERE key = 'latest_signed_advisory_json'"
@@ -2063,10 +2146,15 @@ def _attach_lifecycle_hints(result: dict, store) -> None:
         if adv_row and adv_row[0]:
             meta = json.loads(adv_row[0])
             trusted = meta.get("trusted_pubkeys")
+            inst_ver, inst_build = _installed_version_and_build()
+            cur_ver = meta.get("current_version") or inst_ver
+            cur_build = meta.get("current_build_id") if meta.get("current_build_id") else (
+                inst_build if cur_ver == inst_ver else ""
+            )
             advisory = verify_release_advisory(
                 meta["event"],
-                current_version=meta.get("current_version", "0.4.0"),
-                current_build_id=meta.get("current_build_id", ""),
+                current_version=cur_ver,
+                current_build_id=cur_build,
                 trusted_pubkeys=frozenset(trusted) if trusted else None,
             )
             if advisory.get("update_available"):
@@ -2467,6 +2555,7 @@ async def _flush_completion_acks(policy, agent, store, *, limit=100):
 
 
 _last_outbox_recheck = 0.0
+_last_advisory_check = 0.0
 
 
 async def _recheck_sent_deliveries(agent, *, every: float = 60.0):
@@ -2475,7 +2564,7 @@ async def _recheck_sent_deliveries(agent, *, every: float = 60.0):
     At most once a minute per process: the journal schedule itself spaces rechecks from
     one minute to six hours. A failure here must never stop receiving mail.
     """
-    global _last_outbox_recheck
+    global _last_outbox_recheck, _last_advisory_check
     now = time.time()
     if now - _last_outbox_recheck < every:
         return
@@ -2488,6 +2577,13 @@ async def _recheck_sent_deliveries(agent, *, every: float = 60.0):
         log.exception("public announcement repair failed; receiving continues")
     with contextlib.suppress(Exception):
         await reconcile_relay_failover(agent=agent, now=now)
+    if (
+        now - _last_advisory_check >= 6 * 3600
+        and any(u in _OFFICIAL_A4A_RELAYS for u in getattr(agent, "_own_relays", ()))
+    ):
+        _last_advisory_check = now
+        with contextlib.suppress(Exception):
+            await check_update_advisory()
     from . import outbox_runtime
     try:
         result = await outbox_runtime.recheck_due_on(agent, now=now)
@@ -3539,19 +3635,27 @@ def record_signed_advisory(
 
 async def check_update_advisory(
     *,
-    current_version: str = "0.4.0",
+    current_version: str = "",
     current_build_id: str = "",
     trusted_pubkeys=None,
 ) -> dict:
-    """Query configured relays for the latest signed release advisory and verify it."""
+    """Query configured relays (and official signed advisory endpoint) for the latest release advisory."""
     from a4a.advisory import (
         ADVISORY_D_TAG,
         KIND_RELEASE_ADVISORY,
+        OFFICIAL_ADVISORY_URL,
         OFFICIAL_GITHUB_REPO,
         OFFICIAL_RELEASE_SIGNING_PUBKEYS,
         verify_release_advisory,
     )
+    from a4a.event import Event
     from .server import _relay_urls
+
+    inst_ver, inst_build = _installed_version_and_build()
+    if not current_version:
+        current_version = inst_ver
+    if not current_build_id and current_version == inst_ver:
+        current_build_id = inst_build
 
     policy = load_policy()
     relays = list(_relay_urls())
@@ -3564,18 +3668,31 @@ async def check_update_advisory(
         else trusted_pubkeys
     )
     keys = _existing_keys() if identity.IDENTITY_FILE.is_file() else None
-    async with Agent(relays, keys=keys) as agent:
-        found = await agent.relay.query({
-            "kinds": [KIND_RELEASE_ADVISORY],
-            "authors": authors,
-            "#d": [ADVISORY_D_TAG],
-            "limit": 5,
-        })
+    found = []
+    with contextlib.suppress(Exception):
+        async with Agent(relays, keys=keys) as agent:
+            found = await agent.relay.query({
+                "kinds": [KIND_RELEASE_ADVISORY],
+                "authors": authors,
+                "#d": [ADVISORY_D_TAG],
+                "limit": 5,
+            })
+
+    if trusted_pubkeys is None and any(u in _OFFICIAL_A4A_RELAYS for u in relays):
+        with contextlib.suppress(Exception):
+            import urllib.request
+            req = urllib.request.Request(OFFICIAL_ADVISORY_URL, headers={"User-Agent": f"a4a-mcp/{current_build_id or current_version}"})
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                raw_json = json.loads(resp.read().decode("utf-8"))
+                web_ev = Event.model_validate(raw_json)
+                if web_ev.verify() and web_ev.pubkey in OFFICIAL_RELEASE_SIGNING_PUBKEYS:
+                    found.append(web_ev)
 
     if not found:
         return {
             "verified": True,
             "current_version": current_version,
+            "current_build_id": current_build_id,
             "latest_version": current_version,
             "update_available": False,
             "github_repo_url": OFFICIAL_GITHUB_REPO,

@@ -190,14 +190,17 @@ def verify_release_advisory(
             "untrusted github_diff_url in release advisory (only https://github.com/a4a-network/a4a is allowed)"
         )
 
-    is_newer = (
-        latest_ver_tuple > current_ver_tuple
-        or (
-            latest_ver_tuple == current_ver_tuple
-            and bool(build_id)
-            and build_id != current_build_id
+    if bool(build_id) and _SEMVER_RE.fullmatch(build_id) and _SEMVER_RE.fullmatch(current_build_id or current_version):
+        is_newer = _parse_semver(build_id) > _parse_semver(current_build_id or current_version)
+    else:
+        is_newer = (
+            latest_ver_tuple > current_ver_tuple
+            or (
+                latest_ver_tuple == current_ver_tuple
+                and bool(build_id)
+                and build_id != current_build_id
+            )
         )
-    )
     advisory_key = f"{version}:{build_id}" if build_id else version
     install_cmd = (
         "pip install --upgrade --force-reinstall --no-cache-dir "
