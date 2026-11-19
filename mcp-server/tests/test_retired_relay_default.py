@@ -62,3 +62,10 @@ def test_policy_three_active_relays_override_legacy_seven_relay_env(tmp_path, mo
     assert server._relay_url() == active[0]
     assert server._relay_urls() == active
 
+    # Also verify that a legacy env var still containing retired kz1/relay.a4a.network
+    # is overridden by the 3-relay official inbox-policy.json pool:
+    monkeypatch.setenv("A4A_RELAY", "wss://ru1.a4a.network,wss://kz1.a4a.network")
+    assert server._relay_url() == active[0]
+    assert server._relay_urls() == active
+
+

@@ -85,16 +85,23 @@ def _policy_relays() -> list[str]:
     return []
 
 
+def _is_a4a_network_relay(url: str) -> bool:
+    u = str(url).strip().rstrip("/").lower()
+    return u in inbox_runtime._OFFICIAL_A4A_RELAYS or u.endswith(".a4a.network")
+
+
 def _relay_urls() -> list[str]:
     """Return all comma-separated nodes from `inbox-policy.json` or `A4A_RELAY`.
 
     When `<A4A_HOME>/inbox-policy.json` defines an official 3-relay active pool
     (`"relays": [...]`) and `A4A_RELAY` in the environment is either unset or
-    contains official `*.a4a.network` relays (e.g., an older 7-relay string from
-    `.mcp.json` or a wrapper script), the persisted policy pool wins so outbound
-    sending (`a4a_deliver` / `a4a_reply`) and `inbox-status` always use the same
-    3 active + 4 standby relay topology. Explicit non-official `A4A_RELAY`
-    overrides (such as local test relays `ws://127.0.0.1:...`) still take precedence.
+    contains official/retired `*.a4a.network` relays (e.g., an older `ru1+kz1`
+    or 7-relay string from `.codex/config.toml`, `.mcp.json` or a wrapper script),
+    the persisted policy pool wins so `a4a_my_address`, `a4a_inbox_status`, and
+    outbound sending (`a4a_deliver` / `a4a_reply`) always use the same 3 active
+    + 4 standby relay topology without retired `kz1`. Explicit non-official
+    `A4A_RELAY` overrides (such as local test relays `ws://127.0.0.1:...`) still
+    take precedence.
     """
     raw = os.environ.get("A4A_RELAY", "")
     configured = [part.strip() for part in raw.split(",")]
@@ -102,12 +109,12 @@ def _relay_urls() -> list[str]:
     first = _relay_url()
     if configured and configured[0] != first:
         # `_relay_url` was replaced in a test OR policy primary overrode a legacy
-        # official A4A_RELAY list. Check if policy relays match `first`.
+        # official/retired A4A_RELAY list. Check if policy relays match `first`.
         pol_relays = _policy_relays()
         if (
             pol_relays
             and pol_relays[0] == first
-            and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured)
+            and all(_is_a4a_network_relay(u) for u in configured)
         ):
             return pol_relays
         return [first]
@@ -115,7 +122,8 @@ def _relay_urls() -> list[str]:
     if (
         len(pol_relays) >= 2
         and pol_relays[0] == first
-        and (not configured or all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured))
+        and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in pol_relays)
+        and (not configured or all(_is_a4a_network_relay(u) for u in configured))
     ):
         return pol_relays
     out = [first, *[u for u in configured[1:] if u != first]]
@@ -133,7 +141,7 @@ def _relay_url() -> str:
             raise ValueError("A4A_RELAY is empty; at least one node address is required")
         if (
             pol_relays
-            and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in configured)
+            and all(_is_a4a_network_relay(u) for u in configured)
             and all(u in inbox_runtime._OFFICIAL_A4A_RELAYS for u in pol_relays)
         ):
             return pol_relays[0]

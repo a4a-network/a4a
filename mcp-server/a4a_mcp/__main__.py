@@ -1147,8 +1147,7 @@ def _admin(argv: list[str]) -> None:
 DEMO_AGENT_APUB = "apub1jqahsu46f6gwm7husjlmvzvhggrdfugjda8gjl0tnr9wcq2z6casj59wqj"
 DEFAULT_PUBLIC_RELAYS = (
     "wss://eu1.a4a.network",
-    "wss://us1.a4a.network",
-    "wss://sg1.a4a.network",
+    "wss://eu2.a4a.network",
     "wss://ru1.a4a.network",
 )
 
@@ -1207,9 +1206,11 @@ def _onboarding_cli(argv: list[str]) -> None:
     if args.command == "setup":
         if args.relays.strip():
             os.environ["A4A_RELAY"] = args.relays.strip()
-        elif not os.environ.get("A4A_RELAY"):
-            os.environ["A4A_RELAY"] = ",".join(DEFAULT_PUBLIC_RELAYS)
-        relays = _relay_urls()
+            relays = [p.strip() for p in args.relays.strip().split(",") if p.strip()]
+        else:
+            if not os.environ.get("A4A_RELAY"):
+                os.environ["A4A_RELAY"] = ",".join(DEFAULT_PUBLIC_RELAYS)
+            relays = _relay_urls()
         if len(relays) < 2 and not args.allow_single_relay:
             raise SystemExit(
                 f"A4A setup: Only 1 relay ({relays[0] if relays else 'none'}) is configured in A4A_RELAY. "
