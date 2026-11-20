@@ -1956,24 +1956,26 @@ pub async fn db_checkpoint_task(
             tokio::select! {
                 _ = tokio::time::sleep(frequency) => {
                     if let Ok(mut conn) = pool.get() {
-                        // block all other writers
-                        let _write_guard = write_in_progress.lock().await;
-                        let mut _guard:Option<MutexGuard<u64>> = None;
-                        // the busy timer will block writers, so don't set
-                        // this any higher than you want max latency for event
-                        // writes.
                         if current_wal_size <= wal_threshold {
+                            // Normal steady-state: run a non-blocking PASSIVE checkpoint
+                            // without holding `write_in_progress`, so active readers and
+                            // shared-VPS disk fsync jitter never freeze incoming EVENT writes.
                             conn.busy_timeout(busy_wait_default).ok();
+                            debug!("running wal_checkpoint(PASSIVE)");
+                            if let Ok(new_size) = checkpoint_db_mode(&mut conn, false) {
+                                current_wal_size = new_size;
+                            }
                         } else {
-                            // if the wal size has exceeded a threshold, increase the busy timeout.
+                            // WAL exceeded 40 MB threshold: block writers and new readers
+                            // briefly to perform a full TRUNCATE checkpoint.
+                            let _write_guard = write_in_progress.lock().await;
                             conn.busy_timeout(busy_wait_default_long).ok();
-                            // take a lock that will prevent new readers.
-                            info!("blocking new readers to perform wal_checkpoint");
-                            _guard = Some(checkpoint_in_progress.lock().await);
-                        }
-                        debug!("running wal_checkpoint(TRUNCATE)");
-                        if let Ok(new_size) = checkpoint_db(&mut conn) {
-                            current_wal_size = new_size;
+                            info!("blocking new readers to perform wal_checkpoint(TRUNCATE)");
+                            let _guard = Some(checkpoint_in_progress.lock().await);
+                            debug!("running wal_checkpoint(TRUNCATE)");
+                            if let Ok(new_size) = checkpoint_db_mode(&mut conn, true) {
+                                current_wal_size = new_size;
+                            }
                         }
                     }
                 }
@@ -1995,7 +1997,15 @@ enum SqliteStatus {
 
 /// Checkpoint/Truncate WAL.  Returns the number of WAL pages remaining.
 pub fn checkpoint_db(conn: &mut PooledConnection) -> Result<usize> {
-    let query = "PRAGMA wal_checkpoint(TRUNCATE);";
+    checkpoint_db_mode(conn, true)
+}
+
+pub fn checkpoint_db_mode(conn: &mut PooledConnection, truncate: bool) -> Result<usize> {
+    let query = if truncate {
+        "PRAGMA wal_checkpoint(TRUNCATE);"
+    } else {
+        "PRAGMA wal_checkpoint(PASSIVE);"
+    };
     let start = Instant::now();
     let (cp_result, wal_size, _frames_checkpointed) = conn.query_row(query, [], |row| {
         let checkpoint_result: u64 = crate::utils::sql_to_u64(row.get::<_, i64>(0)?);

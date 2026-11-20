@@ -198,6 +198,9 @@ static V1_SEARCH_SLOTS: std::sync::OnceLock<Arc<tokio::sync::Semaphore>> =
 static V1_HISTORY_SLOTS: std::sync::OnceLock<Arc<tokio::sync::Semaphore>> =
     std::sync::OnceLock::new();
 
+static V1_INBOX_SLOTS: std::sync::OnceLock<Arc<tokio::sync::Semaphore>> =
+    std::sync::OnceLock::new();
+
 // Bytes owns the permit, so a slow response cannot free the slot while its
 // buffer is still retained by Hyper. Cancellation of the handler is safe too.
 struct HistoryResponseBytes {
@@ -217,6 +220,13 @@ fn v1_search_slots(settings: &Settings) -> &'static Arc<tokio::sync::Semaphore> 
     V1_SEARCH_SLOTS.get_or_init(|| {
         let half = (settings.database.max_conn as usize) / 2;
         Arc::new(tokio::sync::Semaphore::new(half.max(1)))
+    })
+}
+
+fn v1_inbox_slots(settings: &Settings) -> &'static Arc<tokio::sync::Semaphore> {
+    V1_INBOX_SLOTS.get_or_init(|| {
+        let slots = ((settings.database.max_conn as usize) * 3 / 4).max(4);
+        Arc::new(tokio::sync::Semaphore::new(slots))
     })
 }
 
@@ -548,7 +558,10 @@ async fn inbox_request(repo: Arc<dyn NostrRepo>, query: Option<&str>,
         return Response::builder().status(StatusCode::FORBIDDEN)
             .body(full("direct messages are not served over REST while nip42_dms is enabled")).unwrap();
     }
-    let Ok(permit) = slots.try_acquire_owned() else {
+    let Ok(Ok(permit)) = tokio::time::timeout(
+        std::time::Duration::from_millis(1500),
+        slots.acquire_owned(),
+    ).await else {
         return Response::builder().status(StatusCode::TOO_MANY_REQUESTS)
             .header("Retry-After", "1").body(full("inbox busy; retry this cursor")).unwrap();
     };
@@ -828,11 +841,11 @@ async fn handle_web_request(
         // timestamped (finding 86). `after` is inclusive and `limit` is 1..5000. An
         // engine without intake history returns 501 rather than an empty list.
         (path, false) if settings.a4a.rest_enabled && path == "/v1/history" => {
-            let slots = V1_HISTORY_SLOTS.get_or_init(|| Arc::new(tokio::sync::Semaphore::new(1)));
+            let slots = V1_HISTORY_SLOTS.get_or_init(|| Arc::new(tokio::sync::Semaphore::new(4)));
             Ok(history_request(repo, request.uri().query(), slots.clone()).await)
         }
         ("/v1/inbox", false) if settings.a4a.rest_enabled => {
-            let slots = V1_HISTORY_SLOTS.get_or_init(|| Arc::new(tokio::sync::Semaphore::new(1)));
+            let slots = v1_inbox_slots(&settings);
             let auth = settings.a4a.inbox_auth.then(|| {
                 (request.headers(), request.uri(), settings.info.relay_url.as_deref())
             });

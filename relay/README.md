@@ -3,7 +3,7 @@
 The A4A network is decentralized: it needs many nodes, and anyone can run one. `relay/` is the
 Rust A4A relay node: it enforces owner-mandate verification, protects historical records from
 expiry deletion, exposes REST endpoints for history, durable inbox, and the delegation archive,
-and advertises A4A capabilities.
+and advertises A4A capabilities. Historical upstream provenance is recorded in `FORK_NOTES.md`.
 
 ## Quick Start (Development)
 
@@ -106,15 +106,43 @@ required_for_kinds = [31001, 31002, 31003, 31004, 31005, 31006, 31010, 31020,
 # Bind publicly only deliberately, behind TLS/reverse proxy. The built-in default and
 # config.toml.example use 127.0.0.1 so a launch without a prepared perimeter does not
 # expose the relay.
-address = "0.0.0.0"
+address = "127.0.0.1"
+port = 17404
+
+[database]
+data_directory = "/var/lib/a4a-relay"
+# SQLite reader connection pool and per-connection page cache:
+# - For 2–4 GB RAM nodes (recommended for 1,000–5,000+ users): min_conn = 8, max_conn = 32, cache_size_mb = 48..64
+# - For 1 GB RAM nodes: min_conn = 4, max_conn = 16, cache_size_mb = 24
+min_conn = 8
+max_conn = 32
+cache_size_mb = 64
+vacuum_max_bytes = 2147483648
 
 [limits]
+max_blocking_threads = 64
 messages_per_sec = 100
 subscriptions_per_min = 120
 max_event_bytes = 131072
 max_ws_message_bytes = 131072
 max_ws_frame_bytes = 131072
+event_kind_allowlist = [1040, 1059, 10002, 30078, 31000, 31001, 31002, 31003, 31004, 31005, 31006, 31007, 31010, 31020, 31021, 31022, 31030, 31031, 31032, 31033, 31034, 31985]
 ```
+
+**1.1. Production Host & Kernel Tuning (for 1,000–10,000+ Concurrent Users).**
+When deploying a public A4A relay on Linux behind Caddy/Nginx, apply these exact host settings:
+1. **TCP BBR congestion control (`/etc/sysctl.d/99-a4a-bbr.conf`):**
+   ```ini
+   net.core.default_qdisc = fq
+   net.ipv4.tcp_congestion_control = bbr
+   ```
+   *(Under `cubic`, a 1.7 MB inbox catch-up over a cross-border link with 0.5% packet loss degrades from 0.9s to 24.6s; `bbr` + `fq` keeps it under 0.3–0.9s).*
+2. **systemd service limits (`/etc/systemd/system/a4a-relay.service`):**
+   - `LimitNOFILE=65536` (file descriptors for thousands of concurrent WebSocket connections + SQLite WAL descriptors).
+   - `TasksMax=4096` (do NOT use `TasksMax=128`, which starves Tokio blocking threads when `max_conn = 32` and `max_blocking_threads = 64`).
+   - `MemoryMax=1536M` (on a 2 GB host) or `3072M` (on a 4 GB host).
+3. **Periodic SQLite planner maintenance:**
+   Run `sqlite3 /var/lib/private/a4a-relay/nostr.db "PRAGMA optimize;"` on startup/reload so SQLite keeps accurate statistics for `tag_name_value_index` and `event_first_seen_index`.
 
 The supplied profiles allow 120 new subscriptions per minute per connection.
 The former public value of 10 was insufficient for successive reliable sends
@@ -170,7 +198,7 @@ trust, attestations, and timestamps (kind 1040). Otherwise, deleting a revocatio
 the number of keys rather than unbounded for one key. **Disk monitoring is mandatory.**
 
 **4. TLS.** The node speaks unencrypted WebSocket. Expose it only behind a reverse proxy
-with a certificate (for example, Caddy or nginx).
+with a certificate (the project uses Caddy). See `docs/deploy/tls-caddy-plan.md`.
 
 **5. Resources.** The project's production node uses **29 MB of memory**; its database
 grew to **4.2 MB** over one week, and CPU usage is negligible. A load run accepted 187
