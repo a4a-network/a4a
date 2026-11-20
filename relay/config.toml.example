@@ -1,16 +1,16 @@
-# A4A Relay configuration
+# Nostr-rs-relay configuration
 
 [info]
-# The advertised URL for the A4A relay websocket.
-relay_url = "wss://relay.example.com/"
+# The advertised URL for the Nostr websocket.
+relay_url = "wss://nostr.example.com/"
 
 # Relay information for clients.  Put your unique server name here.
-name = "a4a-relay"
+name = "nostr-rs-relay"
 
 # Description
-description = "An A4A protocol relay.\n\nCustomize this with your own info."
+description = "A newly created nostr-rs-relay.\n\nCustomize this with your own info."
 
-# Administrative contact pubkey (32-byte hex, not apub1)
+# Administrative contact pubkey (32-byte hex, not npub)
 #pubkey = "0c2d168a4ae8ca58c9f1ab237b5df682599c6c7ab74307ea8b05684b60405d41"
 
 # Administrative contact URI
@@ -47,12 +47,14 @@ description = "An A4A protocol relay.\n\nCustomize this with your own info."
 
 # Database connection pool settings for subscribers:
 
-# Minimum number of SQLite reader connections
-#min_conn = 0
+# Minimum number of SQLite reader connections (recommended: 8 for 2-4 GB RAM, 4 for 1 GB RAM)
+#min_conn = 8
 
-# Maximum number of SQLite reader connections.  Recommend setting this
-# to approx the number of cores.
-#max_conn = 8
+# Maximum number of SQLite reader connections (recommended: 32 for 2-4 GB RAM, 16 for 1 GB RAM)
+#max_conn = 32
+
+# Per-connection SQLite page cache in MB (recommended: 48-64 for 2-4 GB RAM, 24 for 1 GB RAM)
+#cache_size_mb = 64
 
 # Database connection string.  Required for postgres; not used for
 # sqlite.
@@ -112,12 +114,11 @@ reject_future_seconds = 1800
 # Limiting event creation is highly recommended if your relay is
 # public!
 #
-messages_per_sec = 5
+messages_per_sec = 100
 
 # Limit client subscriptions created, averaged over one minute.  Must
 # be an integer.  If not set (or set to 0), defaults to unlimited.
-# Strongly recommended to set this to a low value such as 10 to ensure
-# fair service.
+# Set to 120 so active clients with delivery + ACK verification do not hit artificial stalls.
 subscriptions_per_min = 120
 
 # UNIMPLEMENTED...
@@ -127,8 +128,8 @@ subscriptions_per_min = 120
 # defaults to unlimited (subject to subscription limits).
 #db_conns_per_client = 0
 
-# Limit blocking threads used for database connections.  Defaults to 16.
-#max_blocking_threads = 16
+# Limit blocking threads used for database connections.  Defaults to 16; set to 64 when max_conn = 32.
+#max_blocking_threads = 64
 
 # Limit the maximum size of an EVENT message.  Defaults to 128 KB.
 # Set to 0 for unlimited.
@@ -204,7 +205,7 @@ limit_scrapers = false
 
 [a4a]
 # A4A delegation enforcement. When false the relay behaves exactly like stock
-# a4a-relay and none of the checks below run.
+# nostr-rs-relay and none of the checks below run.
 enabled = false
 # Kinds that MUST carry a ["delegation", <event id>] tag. While this is unset a
 # delegation is verified only when an event happens to carry one -- an event
@@ -214,7 +215,7 @@ enabled = false
 # How long a validated delegation verdict is cached, in seconds.
 delegation_cache_ttl_secs = 300
 # Cap on delegation-lookup cache MISSES per second across the whole process
-# (each miss costs a DB round trip plus a signature check). 0 = built-in default.
-delegation_lookup_rate_per_sec = 50
+# (each miss costs a DB round trip plus a signature check). 0 = built-in default (2000).
+delegation_lookup_rate_per_sec = 2000
 # Gates the /v1/* REST surface.
 rest_enabled = false

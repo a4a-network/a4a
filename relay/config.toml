@@ -6,9 +6,13 @@ description = "Local A4A relay for development"
 [database]
 data_directory = "/usr/src/app/db"
 # SQLite page cache is PER CONNECTION, not per process: up to max_conn readers plus a
-# writer and maintenance connection. The upstream 80 MB value could consume 800 MB for
-# cache alone, more than the node's 972 MB of RAM. 8 MB x roughly 10 connections = 80 MB.
-cache_size_mb = 8
+# writer and maintenance connection.
+# Sizing by node RAM:
+#   - 2-4 GB RAM (recommended for 1,000-5,000+ users): min_conn = 8, max_conn = 32, cache_size_mb = 48..64
+#   - 1 GB RAM (small VPS): min_conn = 4, max_conn = 16, cache_size_mb = 24
+min_conn = 8
+max_conn = 32
+cache_size_mb = 64
 # The one-time database rebuild for incremental vacuum needs free space roughly equal to
 # the database and holds a lock. Above this threshold the relay logs a warning instead of
 # rebuilding silently, leaving the maintenance window to an operator.
@@ -20,11 +24,13 @@ address = "0.0.0.0"
 port = 8080
 
 [limits]
+max_blocking_threads = 64
 messages_per_sec = 100
 subscriptions_per_min = 120
 max_event_bytes = 131072
 max_ws_message_bytes = 131072
 max_ws_frame_bytes = 131072
+event_kind_allowlist = [1040, 1059, 10002, 30078, 31000, 31001, 31002, 31003, 31004, 31005, 31006, 31007, 31010, 31020, 31021, 31022, 31030, 31031, 31032, 31033, 31034, 31985]
 
 # IMPORTANT: this configuration matches production BEHAVIOR. Only the name, address, and
 # retention periods differ (shorter so effects are visible in development). Previously
