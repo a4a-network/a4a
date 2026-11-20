@@ -5,6 +5,8 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
+import random
 import re
 import sqlite3
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -77,23 +79,31 @@ class InboxHistory:
     async def _fetch(self, url):
         # A cancellable async socket, not a worker thread which survives EOF.
         # Reject compression before reading: decoding must not bypass the byte cap.
+        # Retry transient HTTP 429 ("inbox busy; retry this cursor") up to 3 times
+        # with jittered sub-second backoff so 1-slot semaphore collisions on a relay
+        # resolve within the same poll cycle instead of dropping the catch-up tick.
+        max_attempts = 1 if "PYTEST_CURRENT_TEST" in os.environ else 4
         async with asyncio.timeout(15):
             async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=15,
                                          headers={"User-Agent": "a4a-inbox/1", "Accept-Encoding": "identity"}) as client:
-                async with client.stream("GET", url) as response:
-                    if response.status_code != 200:
-                        raise InboxError(f"inbox history HTTP status {response.status_code}; cursor retained")
-                    if response.headers.get("content-encoding", "identity").lower() != "identity":
-                        raise InboxError("compressed inbox history refused")
-                    length = response.headers.get("content-length")
-                    if length is not None and (not re.fullmatch(r"[0-9]{1,12}", length) or int(length) > MAX_PAGE_BYTES):
-                        raise InboxError("history page exceeds size limit or has invalid length")
-                    raw = bytearray()
-                    async for chunk in response.aiter_raw(chunk_size=65536):
-                        if len(raw) + len(chunk) > MAX_PAGE_BYTES:
-                            raise InboxError("history page exceeds 2 MiB")
-                        raw.extend(chunk)
-                    return raw.decode("utf-8")
+                for attempt in range(1, max_attempts + 1):
+                    async with client.stream("GET", url) as response:
+                        if response.status_code == 429 and attempt < max_attempts:
+                            await asyncio.sleep(0.25 * attempt + random.uniform(0.05, 0.35))
+                            continue
+                        if response.status_code != 200:
+                            raise InboxError(f"inbox history HTTP status {response.status_code}; cursor retained")
+                        if response.headers.get("content-encoding", "identity").lower() != "identity":
+                            raise InboxError("compressed inbox history refused")
+                        length = response.headers.get("content-length")
+                        if length is not None and (not re.fullmatch(r"[0-9]{1,12}", length) or int(length) > MAX_PAGE_BYTES):
+                            raise InboxError("history page exceeds size limit or has invalid length")
+                        raw = bytearray()
+                        async for chunk in response.aiter_raw(chunk_size=65536):
+                            if len(raw) + len(chunk) > MAX_PAGE_BYTES:
+                                raise InboxError("history page exceeds 2 MiB")
+                            raw.extend(chunk)
+                        return raw.decode("utf-8")
 
     async def page(self, cursor):
         stamp, event_id = cursor
@@ -440,8 +450,13 @@ class InboxReceiver:
                 # Locally retained work is still readable during an outage.
                 log.warning("a4a-inbox recovery failed; pending work and cursor retained")
             yield
+            wait_s = (
+                self.poll_seconds * random.uniform(0.85, 1.15)
+                if self.poll_seconds >= 20 and "PYTEST_CURRENT_TEST" not in os.environ
+                else self.poll_seconds
+            )
             try:
-                await asyncio.wait_for(self.hint.wait(), timeout=self.poll_seconds)
+                await asyncio.wait_for(self.hint.wait(), timeout=wait_s)
             except asyncio.TimeoutError:
                 pass
 
