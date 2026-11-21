@@ -1875,11 +1875,11 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
                 ack_timeout=resolved_timeout, poll_interval=0.5,
                 resolve_recipient_relays=True, private=True, outbox=journal,
                 conversation_id=conversation_id, reply_to=reply_to)
-            failover_notice = inbox_runtime.format_relay_failover_notice(agent)
             try:
                 await inbox_runtime.reconcile_relay_failover(agent=agent)
             except Exception:
                 pass
+            failover_notice = inbox_runtime.format_relay_failover_notice(agent)
     if result["status"] == "acknowledged":
         return (f"Private delivery: acknowledged, recipient {to_pubkey}. "
                 f"delivery_id={result['delivery_id']} event_id={result['event_id']} "

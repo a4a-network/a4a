@@ -198,6 +198,9 @@ DEFAULT_OFFICIAL_RELAY_POOL = ALL_OFFICIAL_RELAYS[:DEFAULT_ACTIVE_RELAY_COUNT]
 
 FAILOVER_REPUBLISH_MIN_FAILURES = 3
 FAILOVER_REPUBLISH_AFTER_SECS = 900.0
+FAILOVER_ROLLING_MIN_FAILURES = 3
+FAILOVER_ROLLING_MIN_REQUESTS = 10
+FAILOVER_ROLLING_FAILURE_RATE = 0.15
 
 
 def expand_official_relay_pool(
@@ -304,11 +307,18 @@ def get_relay_failover_status(agent=None, policy: InboxPolicy | None = None) -> 
         info = nodes_info.get(u)
         if isinstance(info, dict):
             fails = int(info.get("consecutive_failures") or 0)
-            open_until = float(info.get("breaker_open_until") or 0.0)
-            if fails > 0 or open_until > now_wall or info.get("status") in ("open", "degraded"):
+            rf_1h = int(info.get("rolling_failures_1h") or 0)
+            open_until = max(
+                float(info.get("breaker_open_until") or 0.0),
+                float(info.get("quarantined_until") or 0.0),
+            )
+            if fails > 0 or rf_1h >= FAILOVER_ROLLING_MIN_FAILURES or open_until > now_wall or info.get("status") in ("open", "degraded", "quarantined"):
                 degraded[u] = {
-                    "status": "open" if open_until > now_wall else "degraded",
+                    "status": "quarantined" if float(info.get("quarantined_until") or 0.0) > now_wall else ("open" if open_until > now_wall else "degraded"),
                     "consecutive_failures": fails,
+                    "rolling_failures_1h": rf_1h,
+                    "rolling_failure_rate_1h": float(info.get("rolling_failure_rate_1h") or 0.0),
+                    "total_failures": int(info.get("total_failures") or 0),
                     "first_failure_at": info.get("first_failure_at"),
                     "last_error": info.get("last_error"),
                     "remaining_cooldown_s": round(max(0.0, open_until - now_wall), 2),
@@ -407,7 +417,19 @@ async def reconcile_relay_failover(
             continue
         fails = int(info.get("consecutive_failures") or 0)
         first_fail = info.get("first_failure_at")
-        if fails >= min_failures and first_fail is not None and (ts - float(first_fail)) >= after_secs:
+        rf_1h = int(info.get("rolling_failures_1h") or 0)
+        req_1h = int(info.get("rolling_requests_1h") or 0)
+        rate_1h = float(info.get("rolling_failure_rate_1h") or 0.0)
+        quarantined_until = float(info.get("quarantined_until") or 0.0)
+        is_consecutive_down = (
+            fails >= min_failures and first_fail is not None and (ts - float(first_fail)) >= after_secs
+        )
+        is_rolling_down = (
+            rf_1h >= min_failures
+            or (req_1h >= FAILOVER_ROLLING_MIN_REQUESTS and rate_1h >= FAILOVER_ROLLING_FAILURE_RATE)
+            or quarantined_until > ts
+        )
+        if is_consecutive_down or is_rolling_down:
             prolonged_down.append(u)
 
     if prolonged_down:
@@ -415,7 +437,8 @@ async def reconcile_relay_failover(
         for su in standby:
             sinfo = nodes.get(su)
             sfails = int(sinfo.get("consecutive_failures") or 0) if isinstance(sinfo, dict) else 0
-            if sfails == 0 and su not in active:
+            squar = float(sinfo.get("quarantined_until") or 0.0) if isinstance(sinfo, dict) else 0.0
+            if sfails == 0 and squar <= ts and su not in active:
                 healthy_standby.append(su)
         replaced: dict[str, str] = {}
         effective: list[str] = []
@@ -458,6 +481,8 @@ async def reconcile_relay_failover(
     if promoted.get("active"):
         all_healthy = all(
             int((nodes.get(u) or {}).get("consecutive_failures") or 0) == 0
+            and float((nodes.get(u) or {}).get("quarantined_until") or 0.0) <= ts
+            and int((nodes.get(u) or {}).get("rolling_failures_1h") or 0) < min_failures
             for u in active
         )
         if all_healthy:

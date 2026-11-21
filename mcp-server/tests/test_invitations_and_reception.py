@@ -867,6 +867,16 @@ async def test_three_relays_with_max_recipient_relays_5_leaves_zero_unread_and_s
             assert "[RELAY FAILOVER NOTICE:" in out
             assert sb1.url in out
 
+        # Verify rolling-window health tracking: even if r2_flaky has a transient
+        # success after 3 rolling failures in 1h, its 6h quarantine remains active
+        # and reconcile_relay_failover promotes sb1 in kind=10002.
+        st_data = inbox_runtime._read_relay_health_data()
+        r2_info = st_data["nodes"][r2_flaky.url]
+        assert r2_info["rolling_failures_1h"] >= 3
+        assert r2_info["quarantined_until"] > time.time()
+        assert st_data["promoted_relays"]["active"] is True
+        assert st_data["promoted_relays"]["replaced"] == {r2_flaky.url: sb1.url}
+
 
 
 

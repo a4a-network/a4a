@@ -685,6 +685,11 @@ class FanOutRelayClient:
     breaker_threshold: int = 1
     breaker_cooldown: float = 30.0
     publish_deadline: float = 5.0
+    rolling_window_secs: float = 3600.0
+    rolling_failure_threshold: int = 3
+    rolling_min_requests: int = 10
+    rolling_failure_rate_threshold: float = 0.15
+    quarantine_cooldown_secs: float = 21600.0
 
     def _breaker_map(self) -> dict[str, dict]:
         b = getattr(self, "_breaker", None)
@@ -720,8 +725,14 @@ class FanOutRelayClient:
             for url, info in nodes.items():
                 if not isinstance(info, dict):
                     continue
-                open_until = float(info.get("breaker_open_until") or 0.0)
-                fails = int(info.get("consecutive_failures") or 0)
+                open_until = max(
+                    float(info.get("breaker_open_until") or 0.0),
+                    float(info.get("quarantined_until") or 0.0),
+                )
+                fails = max(
+                    int(info.get("consecutive_failures") or 0),
+                    int(info.get("rolling_failures_1h") or 0),
+                )
                 err_str = str(info.get("last_error") or "relay previously failed")
                 key = _canonical_relay_key(url)
                 if open_until > now_wall and fails >= self.breaker_threshold:
@@ -731,6 +742,7 @@ class FanOutRelayClient:
                         "failures": fails,
                         "last_error": RelayUnreachable(err_str),
                         "opened_at": max(0.001, (now_mono + rem) - float(self.breaker_cooldown)),
+                        "open_until_mono": now_mono + rem,
                     }
         except Exception:
             pass
@@ -799,19 +811,39 @@ class FanOutRelayClient:
     def _record_node_success(self, url: str, latency_ms: float | None = None) -> None:
         b = self._breaker_map()
         key = _canonical_relay_key(url)
-        if key in b:
-            b.pop(key, None)
         st = self._health_state()
         now_wall = round(time.time(), 3)
         prev = st["nodes"].get(url) if isinstance(st["nodes"].get(url), dict) else {}
+        win_cutoff = now_wall - float(self.rolling_window_secs)
+        recent_fails = [float(t) for t in (prev.get("recent_failures") or ()) if isinstance(t, (int, float)) and float(t) >= win_cutoff]
+        recent_oks = [float(t) for t in (prev.get("recent_successes") or ()) if isinstance(t, (int, float)) and float(t) >= win_cutoff]
+        recent_oks.append(now_wall)
+        if len(recent_oks) > 500:
+            recent_oks = recent_oks[-500:]
+        rf_count = len(recent_fails)
+        req_count = rf_count + len(recent_oks)
+        rf_rate = round(rf_count / req_count, 4) if req_count > 0 else 0.0
+        quarantined_until = float(prev.get("quarantined_until") or 0.0)
+        if quarantined_until <= now_wall:
+            quarantined_until = 0.0
+            if key in b:
+                b.pop(key, None)
         st["nodes"][url] = {
-            "status": "healthy",
+            "status": "quarantined" if quarantined_until > now_wall else "healthy",
             "consecutive_failures": 0,
             "first_failure_at": None,
             "last_ok_at": now_wall,
             "last_error_at": prev.get("last_error_at"),
-            "last_error": None,
-            "breaker_open_until": 0.0,
+            "last_error": prev.get("last_error") if quarantined_until > now_wall else None,
+            "breaker_open_until": quarantined_until,
+            "quarantined_until": quarantined_until,
+            "recent_failures": recent_fails,
+            "recent_successes": recent_oks,
+            "rolling_failures_1h": rf_count,
+            "rolling_requests_1h": req_count,
+            "rolling_failure_rate_1h": rf_rate,
+            "total_failures": int(prev.get("total_failures") or 0),
+            "total_requests": int(prev.get("total_requests") or 0) + 1,
             "last_latency_ms": round(latency_ms, 1) if latency_ms is not None else prev.get("last_latency_ms"),
         }
         self._save_health_file()
@@ -825,26 +857,60 @@ class FanOutRelayClient:
         prev = b.get(key)
         fails = (int(prev["failures"]) + 1) if prev else 1
         opened = fails >= self.breaker_threshold
-        b[key] = {
-            "url": url,
-            "failures": fails,
-            "last_error": exc,
-            "opened_at": now if opened else 0.0,
-        }
         st = self._health_state()
         now_wall = round(time.time(), 3)
         prev_node = st["nodes"].get(url) if isinstance(st["nodes"].get(url), dict) else {}
         prev_fails = int(prev_node.get("consecutive_failures") or 0)
         new_fails = max(fails, prev_fails + 1)
         first_fail = prev_node.get("first_failure_at") or now_wall
+
+        win_cutoff = now_wall - float(self.rolling_window_secs)
+        recent_fails = [float(t) for t in (prev_node.get("recent_failures") or ()) if isinstance(t, (int, float)) and float(t) >= win_cutoff]
+        recent_fails.append(now_wall)
+        if len(recent_fails) > 500:
+            recent_fails = recent_fails[-500:]
+        recent_oks = [float(t) for t in (prev_node.get("recent_successes") or ()) if isinstance(t, (int, float)) and float(t) >= win_cutoff]
+        rf_count = len(recent_fails)
+        req_count = rf_count + len(recent_oks)
+        rf_rate = round(rf_count / req_count, 4) if req_count > 0 else 1.0
+
+        should_quarantine = (
+            new_fails >= int(self.rolling_failure_threshold)
+            or rf_count >= int(self.rolling_failure_threshold)
+            or (req_count >= int(self.rolling_min_requests) and rf_rate >= float(self.rolling_failure_rate_threshold))
+        )
+        prev_quarantine = float(prev_node.get("quarantined_until") or 0.0)
+        quarantined_until = (
+            round(max(prev_quarantine, now_wall + float(self.quarantine_cooldown_secs)), 3)
+            if should_quarantine
+            else (prev_quarantine if prev_quarantine > now_wall else 0.0)
+        )
+        cooldown_s = float(self.quarantine_cooldown_secs) if should_quarantine else float(self.breaker_cooldown)
+        open_until_wall = round(max(quarantined_until, now_wall + cooldown_s), 3) if opened else 0.0
+
+        b[key] = {
+            "url": url,
+            "failures": max(fails, rf_count),
+            "last_error": exc,
+            "opened_at": now if opened else 0.0,
+            "open_until_mono": (now + cooldown_s) if opened else 0.0,
+        }
         st["nodes"][url] = {
-            "status": "open" if opened else "degraded",
+            "status": "quarantined" if quarantined_until > now_wall else ("open" if opened else "degraded"),
             "consecutive_failures": new_fails,
             "first_failure_at": first_fail,
             "last_ok_at": prev_node.get("last_ok_at"),
             "last_error_at": now_wall,
             "last_error": str(exc),
-            "breaker_open_until": round(now_wall + float(self.breaker_cooldown), 3) if opened else 0.0,
+            "breaker_open_until": open_until_wall,
+            "quarantined_until": quarantined_until,
+            "recent_failures": recent_fails,
+            "recent_successes": recent_oks,
+            "rolling_failures_1h": rf_count,
+            "rolling_requests_1h": req_count,
+            "rolling_failure_rate_1h": rf_rate,
+            "total_failures": int(prev_node.get("total_failures") or 0) + 1,
+            "total_requests": int(prev_node.get("total_requests") or 0) + 1,
             "last_latency_ms": prev_node.get("last_latency_ms"),
         }
         self._save_health_file()
@@ -852,6 +918,9 @@ class FanOutRelayClient:
     def _is_breaker_open(self, entry: dict | None, now: float) -> bool:
         if not entry:
             return False
+        open_until_mono = float(entry.get("open_until_mono", 0.0))
+        if open_until_mono > 0.0:
+            return now < open_until_mono
         opened_at = float(entry.get("opened_at", 0.0))
         if opened_at <= 0.0:
             return False

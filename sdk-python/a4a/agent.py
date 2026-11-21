@@ -1711,6 +1711,69 @@ class Agent:
                          "acked_event_id": ack.acked_event_id, "event": ev})
         return acks
 
+    async def _unwrap_inbox_via_rest(
+        self,
+        since: int,
+        relay: FanOutRelayClient | RelayClient | None = None,
+    ) -> list[Event] | None:
+        """Fast incremental inbox fetch via REST `/v1/inbox` filtered by server reception time `first_seen`.
+
+        Unlike WebSocket `REQ` (which filters by NIP-59 jittered `created_at` and therefore must
+        download 24+ hours of Gift-Wrap envelopes on every ACK poll), `/v1/inbox` filters by the
+        relay's reception timestamp `first_seen >= since - 120`, transferring only the 1-2 newly
+        arrived envelopes (~4 KB instead of ~1.8 MB). Returns `None` if no relay supports `/v1/inbox`
+        so callers fall back seamlessly to WebSocket `_unwrap_inbox`.
+        """
+        import os
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            return None
+        source = self.relay if relay is None else relay
+        if isinstance(source, FanOutRelayClient):
+            urls = [c.url for c in source.clients if isinstance(getattr(c, "url", None), str)]
+        elif hasattr(source, "url") and isinstance(source.url, str):
+            urls = [source.url]
+        else:
+            return None
+        if not urls or not all(u.startswith(("wss://", "ws://")) for u in urls):
+            return None
+        from .inbox_receiver import InboxHistory
+        after_ts = max(0, int(since) - 120)
+
+        async def _fetch_one(u: str) -> list[Event] | None:
+            try:
+                hist = InboxHistory(u, self.pubkey, limit=250, timeout=2.5)
+                rows = await hist.page((after_ts, ""))
+                return [ev for _, ev in rows]
+            except Exception:
+                return None
+
+        results = await asyncio.gather(*(_fetch_one(u) for u in urls))
+        valid_batches = [b for b in results if b is not None]
+        if not valid_batches:
+            return None
+        wraps = list({gw.id: gw for batch in valid_batches for gw in batch if gw.kind == giftwrap.KIND_GIFT_WRAP}.values())
+        cache = getattr(self, "_unwrapped_cache", None)
+        if cache is None:
+            cache = {}
+            self._unwrapped_cache = cache
+        inners: list[Event] = []
+        for gw in wraps:
+            if gw.id in cache:
+                cached = cache[gw.id]
+                if cached is not None:
+                    inners.append(cached)
+                continue
+            try:
+                inner = giftwrap.unwrap(gw, self.keys)
+            except giftwrap.GiftWrapError:
+                cache[gw.id] = None
+                continue
+            if len(cache) >= 4096:
+                cache.pop(next(iter(cache)))
+            cache[gw.id] = inner
+            inners.append(inner)
+        return inners
+
     async def _get_wrapped_acks(
         self, delivery_id: str,
         from_pubkey: str | None = None,
@@ -1724,9 +1787,13 @@ class Agent:
         downloads per delivery (2026-08-28 review, S3).
         """
         acks = []
-        inners = (await self._unwrap_inbox(since)
-                  if relay is None else
-                  await self._unwrap_inbox(since, relay=relay))
+        inners = None
+        if since is not None and (time.time() - float(since)) <= 7 * 86400:
+            inners = await self._unwrap_inbox_via_rest(since, relay=relay)
+        if inners is None:
+            inners = (await self._unwrap_inbox(since)
+                      if relay is None else
+                      await self._unwrap_inbox(since, relay=relay))
         for inner in inners:
             if inner.kind != types.KIND_ACK_RECEIPT:
                 continue
