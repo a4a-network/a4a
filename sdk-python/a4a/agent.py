@@ -74,8 +74,55 @@ def _safe_from_event(model_cls, ev):
 # expiry it occupies relay storage forever. Public events (profiles, intents,
 # reviews, and trust) are small and needed long-term, so they do not expire. The
 # caller may disable expiry with `expires_in=0` or set it per message.
-PRIVATE_TTL_SECONDS = 7 * 24 * 3600
-ACK_TTL_SECONDS = 3 * 24 * 3600
+PRIVATE_TTL_SECONDS = 30 * 24 * 3600
+ACK_TTL_SECONDS = 7 * 24 * 3600
+MIN_DELIVER_TTL_SECONDS = 72 * 3600
+MIN_OWNER_OR_MONEY_TTL_SECONDS = 30 * 24 * 3600
+
+_FINANCIAL_OR_OWNER_TTL_RE = re.compile(
+    r"(?:"
+    r"(?:\b(?:transfer|pay|payment|invoice|refund|wire|usdt|btc|eth|usd|eur|gbp|rub)\b"
+    r"|\b(?:\u043f\u0435\u0440\u0435\u0432\u0435\u0434|\u043e\u043f\u043b\u0430\u0442|\u0437\u0430\u043f\u043b\u0430\u0442|\u043f\u043b\u0430\u0442\u0435\u0436|\u043f\u043b\u0430\u0442\u0451\u0436|\u0441\u0447\u0435\u0442|\u0441\u0447\u0451\u0442|\u0440\u0443\u0431|\u0434\u043e\u043b\u043b\u0430\u0440)\w*)"
+    r".{0,40}\b\d+"
+    r"|\b(?:for\s+the\s+owner|to\s+the\s+owner|owner[\s_-]*decision|owner[\s_-]*approval)\b"
+    r"|\b(?:\u0434\u043b\u044f\s+\u0432\u043b\u0430\u0434\u0435\u043b\u044c\u0446\u0430|\u0432\u043b\u0430\u0434\u0435\u043b\u044c\u0446\u0443|\u0440\u0435\u0448\u0435\u043d\u0438\u0435\s+\u0432\u043b\u0430\u0434\u0435\u043b\u044c\u0446\u0430)\b"
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _validate_deliver_expires_in(
+    expires_in: int | None,
+    *,
+    content: str = "",
+    outbox=None,
+    owner_addressed: bool = False,
+    category: str | None = None,
+) -> None:
+    """Enforce TTL floor (72h minimum; 30d minimum for owner-addressed or financial messages)."""
+    if expires_in is None:
+        return
+    if type(expires_in) is not int or expires_in < MIN_DELIVER_TTL_SECONDS:
+        raise ValueError(
+            f"expires_in must be an integer >= {MIN_DELIVER_TTL_SECONDS} seconds (72 hours); "
+            f"got {expires_in!r}"
+        )
+    ctx = getattr(outbox, "_context", None)
+    if not isinstance(ctx, dict):
+        ctx = {}
+    eff_cat = (category or ctx.get("category") or "").strip().lower()
+    eff_origin = str(ctx.get("origin_label") or ctx.get("origin") or "").strip().lower()
+    is_protected = (
+        bool(owner_addressed)
+        or eff_cat == "money"
+        or eff_origin == "owner_agent"
+        or bool(_FINANCIAL_OR_OWNER_TTL_RE.search(content or ""))
+    )
+    if is_protected and expires_in < MIN_OWNER_OR_MONEY_TTL_SECONDS:
+        raise ValueError(
+            f"expires_in cannot be less than {MIN_OWNER_OR_MONEY_TTL_SECONDS} seconds (30 days) "
+            f"for owner-addressed or financial messages; got {expires_in}"
+        )
 
 class _BoundedSeen:
     """Bounded set of observed identifiers that evicts old entries.
@@ -1647,7 +1694,13 @@ class Agent:
         ack_ev = types.AckReceipt(
             delivery_id=delivery_id, acked_event_id=ev.id, to_pubkey=ev.pubkey,
             status=status, content=note).to_event(self.delegation_id)
-        # An acknowledgement is an ephemeral transport receipt (default 3 days).
+        # An acknowledgement is an ephemeral transport receipt whose lifetime matches
+        # the 7-day sender recheck window (ACK_TTL_SECONDS = 7 days >= RECHECK_GIVE_UP).
+        if expires_in is not None and (type(expires_in) is not int or expires_in < ACK_TTL_SECONDS):
+            raise ValueError(
+                f"ACK expires_in must be an integer >= {ACK_TTL_SECONDS} seconds (7 days) "
+                f"to cover the sender recheck window; got {expires_in!r}"
+            )
         ack_ttl = ACK_TTL_SECONDS if expires_in is None else expires_in
         ack_ev.tags += self._expiration_tag(ack_ttl)
         if not wrap:
@@ -2035,6 +2088,7 @@ class Agent:
             _check_reply_to(reply_to)
             if not private:
                 raise ValueError("reply_to requires private gift-wrapped delivery")
+        _validate_deliver_expires_in(expires_in, content=content, outbox=outbox)
         to_pubkey = Keys.normalize_pubkey(to_pubkey)
         extra_relays = (await self.resolve_relays(to_pubkey)
                         if resolve_recipient_relays else [])

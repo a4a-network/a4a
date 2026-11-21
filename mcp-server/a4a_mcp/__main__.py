@@ -442,6 +442,8 @@ def _inbox_admin(argv):
                          help="per-attempt ACK wait timeout in seconds (0 < s <= 300; defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0)")
     deliver.add_argument("--retries", type=int, default=None,
                          help="retry count after initial ACK wait (0..20; defaults to A4A_DELIVER_RETRIES or 3)")
+    deliver.add_argument("--expires-in", type=int, default=None,
+                         help="message retention lifetime on relays in seconds (default 2592000 = 30d; minimum 259200 = 72h; owner/money >= 2592000 = 30d)")
     body = deliver.add_mutually_exclusive_group(required=True)
     body.add_argument("--text")
     body.add_argument("--text-file")
@@ -466,6 +468,8 @@ def _inbox_admin(argv):
                        help="per-attempt ACK wait timeout in seconds (0 < s <= 300; defaults to A4A_DELIVER_ACK_TIMEOUT or 5.0)")
     reply.add_argument("--retries", type=int, default=None,
                        help="retry count after initial ACK wait (0..20; defaults to A4A_DELIVER_RETRIES or 3)")
+    reply.add_argument("--expires-in", type=int, default=None,
+                       help="message retention lifetime on relays in seconds (default 2592000 = 30d; minimum 259200 = 72h; owner/money >= 2592000 = 30d)")
     reply_body = reply.add_mutually_exclusive_group(required=True)
     reply_body.add_argument("--text")
     reply_body.add_argument("--text-file")
@@ -841,6 +845,7 @@ def _inbox_admin(argv):
                 commitment_note=args.commitment_note,
                 ack_timeout=args.ack_timeout,
                 retries=args.retries,
+                expires_in=args.expires_in,
             )
             result = _run_delivery(delivery, emit)
             out_deliver = {"result": result}
@@ -868,6 +873,7 @@ def _inbox_admin(argv):
                     commitment_note=args.commitment_note,
                     ack_timeout=args.ack_timeout,
                     retries=args.retries,
+                    expires_in=args.expires_in,
                 ),
                 emit,
             )

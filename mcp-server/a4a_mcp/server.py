@@ -1862,6 +1862,7 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
         topic=topic,
         owner_approval_token=owner_approval_token,
         owner_approved=owner_approved,
+        expires_in=expires_in,
     )
     with outbox_runtime.open_store() as journal:
         journal.set_context(

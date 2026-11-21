@@ -39,6 +39,16 @@ impl EventCmd {
     pub fn event_id(&self) -> &str {
         &self.event.id
     }
+
+    #[must_use]
+    pub fn is_event(&self) -> bool {
+        self.cmd == "EVENT"
+    }
+
+    #[must_use]
+    pub fn kind(&self) -> u64 {
+        self.event.kind
+    }
 }
 
 /// Parsed nostr event.

@@ -1212,9 +1212,15 @@ def authorize_outbound_send(
     topic: str | None = None,
     owner_approval_token: str | None = None,
     owner_approved: bool = False,
+    expires_in: int | None = None,
 ) -> dict:
-    """Technical Outbound Policy Gate for Trust Levels L1-L3 and Restricted Categories."""
+    """Technical Outbound Policy Gate for Trust Levels L1-L3, Restricted Categories, and TTL floors."""
     import hashlib
+    from a4a.agent import (
+        MIN_DELIVER_TTL_SECONDS,
+        MIN_OWNER_OR_MONEY_TTL_SECONDS,
+        _validate_deliver_expires_in,
+    )
     from a4a.keys import Keys
     norm = Keys.normalize_pubkey(pubkey)
     policy = require_legacy_send(norm)
@@ -1235,11 +1241,28 @@ def authorize_outbound_send(
     topics = peer_info["topics"]
     remote_attested = peer_info["remote_trust_attested"]
 
+    detected_restricted = _detect_restricted_outbound_content(text)
     effective_category = category
     if category in ("routine_dev", "fact") and (level in (1, 3) or origin in ("external_contact", "scoped_partner")):
-        detected = _detect_restricted_outbound_content(text)
-        if detected is not None:
-            effective_category = detected
+        if detected_restricted is not None:
+            effective_category = detected_restricted
+
+    if expires_in is not None:
+        is_owner_addressed = (origin == "owner_agent")
+        ttl_category = "money" if (effective_category == "money" or detected_restricted == "money") else effective_category
+        try:
+            _validate_deliver_expires_in(
+                expires_in,
+                content=text,
+                owner_addressed=is_owner_addressed,
+                category=ttl_category,
+            )
+        except ValueError as exc:
+            raise InboxError(
+                f"Outbound send blocked by A4A Retention Policy: {exc} "
+                f"(minimum TTL is {MIN_DELIVER_TTL_SECONDS}s / 72h; "
+                f"owner-addressed or financial messages require >= {MIN_OWNER_OR_MONEY_TTL_SECONDS}s / 30d)."
+            ) from None
 
     needs_approval = False
     reasons: list[str] = []

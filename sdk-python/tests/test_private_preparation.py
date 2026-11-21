@@ -224,3 +224,43 @@ def test_preparation_preserves_format_specific_empty_content_behavior(sender):
     inner, outer, _ = sender.prepare_private_message(recipient.pubkey_hex, "")
     assert inner.content == ""
     assert giftwrap.unwrap(outer, recipient) == inner
+
+
+def test_retention_defaults_and_ttl_guardrails():
+    from a4a.agent import (
+        ACK_TTL_SECONDS,
+        MIN_DELIVER_TTL_SECONDS,
+        MIN_OWNER_OR_MONEY_TTL_SECONDS,
+        PRIVATE_TTL_SECONDS,
+        _validate_deliver_expires_in,
+    )
+    from a4a.outbox import RECHECK_GIVE_UP
+
+    # 1. Default message TTL is 30 days; ACK TTL matches the 7-day recheck window
+    assert PRIVATE_TTL_SECONDS == 30 * 24 * 3600
+    assert ACK_TTL_SECONDS == 7 * 24 * 3600
+    assert ACK_TTL_SECONDS >= RECHECK_GIVE_UP
+
+    # 2. Routine messages allow explicit expires_in >= 72h (e.g. 72h or 7d), reject < 72h
+    assert MIN_DELIVER_TTL_SECONDS == 72 * 3600
+    _validate_deliver_expires_in(None, content="routine status ping")
+    _validate_deliver_expires_in(72 * 3600, content="routine status ping")
+    _validate_deliver_expires_in(7 * 24 * 3600, content="routine status ping")
+    with pytest.raises(ValueError, match="72 hours"):
+        _validate_deliver_expires_in(3600, content="routine status ping")
+    with pytest.raises(ValueError, match="72 hours"):
+        _validate_deliver_expires_in(0, content="routine status ping")
+
+    # 3. Owner-addressed or financial messages require >= 30 days
+    assert MIN_OWNER_OR_MONEY_TTL_SECONDS == 30 * 24 * 3600
+    with pytest.raises(ValueError, match="30 days"):
+        _validate_deliver_expires_in(7 * 24 * 3600, content="routine note", owner_addressed=True)
+    with pytest.raises(ValueError, match="30 days"):
+        _validate_deliver_expires_in(7 * 24 * 3600, content="routine note", category="money")
+    with pytest.raises(ValueError, match="30 days"):
+        _validate_deliver_expires_in(7 * 24 * 3600, content="Оплата счёта 15000 руб проведена")
+    with pytest.raises(ValueError, match="30 days"):
+        _validate_deliver_expires_in(7 * 24 * 3600, content="Please transfer 250 USDT to wallet")
+    _validate_deliver_expires_in(30 * 24 * 3600, content="Оплата счёта 15000 руб проведена", category="money")
+    _validate_deliver_expires_in(30 * 24 * 3600, content="Report for owner", owner_addressed=True)
+

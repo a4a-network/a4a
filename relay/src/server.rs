@@ -1458,6 +1458,11 @@ fn create_metrics() -> (Registry, NostrMetrics) {
         IntCounter::with_opts(Opts::new("nostr_cmd_close_total", "CLOSE commands")).unwrap();
     let cmd_auth =
         IntCounter::with_opts(Opts::new("nostr_cmd_auth_total", "AUTH commands")).unwrap();
+    let reject_event_kind = IntCounter::with_opts(Opts::new(
+        "nostr_reject_event_kind_total",
+        "EVENT commands rejected by kind allowlist/blacklist before signature verification",
+    ))
+    .unwrap();
     let disconnects = IntCounterVec::new(
         Opts::new("nostr_disconnects_total", "Client disconnects"),
         vec!["reason"].as_slice(),
@@ -1475,6 +1480,7 @@ fn create_metrics() -> (Registry, NostrMetrics) {
     registry.register(Box::new(cmd_event.clone())).unwrap();
     registry.register(Box::new(cmd_close.clone())).unwrap();
     registry.register(Box::new(cmd_auth.clone())).unwrap();
+    registry.register(Box::new(reject_event_kind.clone())).unwrap();
     registry.register(Box::new(disconnects.clone())).unwrap();
     let metrics = NostrMetrics {
         query_sub,
@@ -1490,6 +1496,7 @@ fn create_metrics() -> (Registry, NostrMetrics) {
         cmd_event,
         cmd_close,
         cmd_auth,
+        reject_event_kind,
     };
     (registry, metrics)
 }
@@ -2126,9 +2133,34 @@ async fn nostr_server(
                 // convert ws_next into proto_next
                 match nostr_msg {
                     Ok(NostrMessage::EventMsg(ec)) => {
+                        // Reject disallowed event kinds BEFORE expensive canonicalization,
+                        // SHA-256 hashing, secp256k1 signature verification, and db_writer queueing.
+                        let evid = ec.event_id().to_owned();
+                        if ec.is_event() {
+                            let kind_blocked = settings
+                                .limits
+                                .event_kind_blacklist
+                                .as_ref()
+                                .is_some_and(|bl| bl.contains(&ec.kind()))
+                                || settings
+                                    .limits
+                                    .event_kind_allowlist
+                                    .as_ref()
+                                    .is_some_and(|al| !al.contains(&ec.kind()));
+                            if kind_blocked {
+                                metrics.cmd_event.inc();
+                                metrics.reject_event_kind.inc();
+                                let notice = Notice::blocked(evid, "event kind is blocked by relay");
+                                if !send_or_timeout(&mut ws_stream, make_notice_message(&notice)).await {
+                                    debug!("failed to send notice, closing connection (cid: {})", cid);
+                                    metrics.disconnects.with_label_values(&["send_error"]).inc();
+                                    break;
+                                }
+                                continue;
+                            }
+                        }
                         // An EventCmd needs to be validated to be converted into an Event
                         // handle each type of message
-                        let evid = ec.event_id().to_owned();
                         let parsed : Result<EventWrapper> = Result::<EventWrapper>::from(ec);
                         match parsed {
                             Ok(WrappedEvent(e)) => {
@@ -2425,6 +2457,7 @@ pub struct NostrMetrics {
     pub cmd_event: IntCounter,       // count of EVENT commands received
     pub cmd_close: IntCounter,       // count of CLOSE commands received
     pub cmd_auth: IntCounter,        // count of AUTH commands received
+    pub reject_event_kind: IntCounter, // count of EVENT commands rejected by kind before signature verification
 }
 
 #[cfg(test)]

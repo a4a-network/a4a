@@ -2158,6 +2158,7 @@ pub(crate) mod tests {
             cmd_event: IntCounter::with_opts(Opts::new("test_cmd_event_total", "test")).unwrap(),
             cmd_close: IntCounter::with_opts(Opts::new("test_cmd_close_total", "test")).unwrap(),
             cmd_auth: IntCounter::with_opts(Opts::new("test_cmd_auth_total", "test")).unwrap(),
+            reject_event_kind: IntCounter::with_opts(Opts::new("test_reject_event_kind_total", "test")).unwrap(),
         }
     }
 
