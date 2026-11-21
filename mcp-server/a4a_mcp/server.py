@@ -1769,7 +1769,8 @@ async def a4a_deliver(to_pubkey: str, text: str,
                       owner_approval_token: str = "",
                       commitment_note: str = "",
                       ack_timeout: float | None = None,
-                      retries: int | None = None) -> str:
+                      retries: int | None = None,
+                      expires_in: int | None = None) -> str:
     """Deliver a private message and wait for the recipient's signed ACK.
 
     The message and acknowledgement use gift-wrap envelopes. Recipient published inbox
@@ -1828,6 +1829,7 @@ async def a4a_deliver(to_pubkey: str, text: str,
         commitment_note=commitment_note or None,
         ack_timeout=ack_timeout,
         retries=retries,
+        expires_in=expires_in,
     )
 
 
@@ -1840,7 +1842,8 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
                              owner_approved: bool = False,
                              commitment_note: str | None = None,
                              ack_timeout: float | None = None,
-                             retries: int | None = None) -> str:
+                             retries: int | None = None,
+                             expires_in: int | None = None) -> str:
     """The one reliable-delivery path shared by a4a_deliver and a4a_reply.
 
     A reply must pass exactly the checks a new letter passes (owner-allowed peer,
@@ -1874,6 +1877,7 @@ async def _deliver_journaled(to_pubkey: str, text: str, conversation_id: str | N
                 to_pubkey, text, retries=resolved_retries,
                 ack_timeout=resolved_timeout, poll_interval=0.5,
                 resolve_recipient_relays=True, private=True, outbox=journal,
+                expires_in=expires_in,
                 conversation_id=conversation_id, reply_to=reply_to)
             try:
                 await inbox_runtime.reconcile_relay_failover(agent=agent)
@@ -1910,7 +1914,8 @@ async def a4a_reply(seq: int, text: str,
                     owner_approval_token: str = "",
                     commitment_note: str = "",
                     ack_timeout: float | None = None,
-                    retries: int | None = None) -> str:
+                    retries: int | None = None,
+                    expires_in: int | None = None) -> str:
     """Answer a received letter; the answer carries a signed reference to it.
 
     `seq` is the letter's number in this mailbox, as a4a_inbox_next showed it. The
@@ -1953,6 +1958,7 @@ async def a4a_reply(seq: int, text: str,
         commitment_note=commitment_note or None,
         ack_timeout=ack_timeout,
         retries=retries,
+        expires_in=expires_in,
     )
     if not outcome.startswith("Private delivery:"):
         return outcome

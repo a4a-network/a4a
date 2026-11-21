@@ -74,7 +74,8 @@ def _safe_from_event(model_cls, ev):
 # expiry it occupies relay storage forever. Public events (profiles, intents,
 # reviews, and trust) are small and needed long-term, so they do not expire. The
 # caller may disable expiry with `expires_in=0` or set it per message.
-PRIVATE_TTL_SECONDS = 30 * 24 * 3600
+PRIVATE_TTL_SECONDS = 7 * 24 * 3600
+ACK_TTL_SECONDS = 3 * 24 * 3600
 
 class _BoundedSeen:
     """Bounded set of observed identifiers that evicts old entries.
@@ -1622,7 +1623,8 @@ class Agent:
     # --- Reliable delivery (ACK, v0.3 P1 plan) ------------------------------
 
     async def acknowledge(self, message, status: str = "received",
-                          note: str = "", wrap: bool | None = None) -> str:
+                          note: str = "", wrap: bool | None = None,
+                          expires_in: int | None = None) -> str:
         """Publish a kind-31034 acknowledgement for `message`.
 
         `message` is a dictionary from `read_private_messages()` or an Event. The
@@ -1645,14 +1647,14 @@ class Agent:
         ack_ev = types.AckReceipt(
             delivery_id=delivery_id, acked_event_id=ev.id, to_pubkey=ev.pubkey,
             status=status, content=note).to_event(self.delegation_id)
-        # An acknowledgement is as ephemeral as the delivered message, so apply the
-        # same retention policy.
-        ack_ev.tags += self._expiration_tag(None)
+        # An acknowledgement is an ephemeral transport receipt (default 3 days).
+        ack_ttl = ACK_TTL_SECONDS if expires_in is None else expires_in
+        ack_ev.tags += self._expiration_tag(ack_ttl)
         if not wrap:
             return await self._publish(ack_ev)
         ack_ev.sign(self.keys)
         gw = giftwrap.wrap(ack_ev, ev.pubkey, self.keys,
-                           extra_tags=self._expiration_tag(None))
+                           extra_tags=self._expiration_tag(ack_ttl))
         await self._broadcast(gw)
         return ack_ev.id
 
@@ -1711,18 +1713,124 @@ class Agent:
                          "acked_event_id": ack.acked_event_id, "event": ev})
         return acks
 
+    def _ack_cursor_file_path(self):
+        hp = getattr(self.relay, "health_file", None)
+        if hp is not None:
+            return hp.parent / "ack-cursors.json"
+        pjd = getattr(self, "public_journal_dir", None)
+        if pjd is not None:
+            from pathlib import Path
+            return Path(pjd).parent.parent / "ack-cursors.json"
+        return None
+
+    def _load_rest_ack_state(self) -> dict:
+        st = getattr(self, "_rest_ack_state", None)
+        if isinstance(st, dict):
+            return st
+        st = {"cursors": {}, "covered_since": {}, "acks": {}}
+        fp = self._ack_cursor_file_path()
+        if fp is not None and fp.is_file():
+            try:
+                import json
+                raw = json.loads(fp.read_text(encoding="utf-8"))
+                if isinstance(raw, dict) and raw.get("pubkey") == self.pubkey:
+                    if isinstance(raw.get("cursors"), dict):
+                        st["cursors"] = raw["cursors"]
+                    if isinstance(raw.get("covered_since"), dict):
+                        st["covered_since"] = raw["covered_since"]
+                    if isinstance(raw.get("acks"), dict):
+                        st["acks"] = raw["acks"]
+            except Exception:
+                pass
+        self._rest_ack_state = st
+        return st
+
+    def _save_rest_ack_state(self) -> None:
+        st = getattr(self, "_rest_ack_state", None)
+        if not isinstance(st, dict):
+            return
+        fp = self._ack_cursor_file_path()
+        if fp is None:
+            return
+        try:
+            import json, os
+            cutoff = int(time.time()) - 8 * 86400
+            acks = st.get("acks") or {}
+            if len(acks) > 2048:
+                items = sorted(acks.items(), key=lambda kv: int(kv[1].get("created_at") or 0))
+                acks = {k: v for k, v in items[-1500:] if int(v.get("created_at") or 0) >= cutoff}
+                st["acks"] = acks
+            payload = {
+                "pubkey": self.pubkey,
+                "updated_at": round(time.time(), 3),
+                "cursors": st.get("cursors") or {},
+                "covered_since": st.get("covered_since") or {},
+                "acks": acks,
+            }
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            tmp = fp.with_suffix(f".tmp.{os.getpid()}")
+            tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, fp)
+        except Exception:
+            pass
+
+    def _ingest_rest_inbox_rows(self, url: str, rows: list, *, covered_since: int | None = None) -> int:
+        """Ingest `/v1/inbox` `(first_seen, Event)` rows into the incremental ACK cursor and cache.
+
+        Called both by `_unwrap_inbox_via_rest` and by `InboxReceiver._sync_relay` so that any
+        wrapped `kind=31034` ACK encountered during normal inbox syncing is immediately cached
+        and advances the ACK cursor without a second network download.
+        """
+        st = self._load_rest_ack_state()
+        cache = getattr(self, "_unwrapped_cache", None)
+        if cache is None:
+            cache = {}
+            self._unwrapped_cache = cache
+        added_acks = 0
+        for stamp, gw in rows:
+            if gw.kind != giftwrap.KIND_GIFT_WRAP:
+                continue
+            if gw.id in cache:
+                inner = cache[gw.id]
+            else:
+                try:
+                    inner = giftwrap.unwrap(gw, self.keys)
+                except giftwrap.GiftWrapError:
+                    cache[gw.id] = None
+                    inner = None
+                else:
+                    if len(cache) >= 4096:
+                        cache.pop(next(iter(cache)))
+                    cache[gw.id] = inner
+            if inner is not None and inner.kind == types.KIND_ACK_RECEIPT:
+                if inner.id not in st["acks"]:
+                    st["acks"][inner.id] = inner.model_dump()
+                    added_acks += 1
+        if rows:
+            last_stamp, last_ev = rows[-1]
+            prev_cur = st["cursors"].get(url)
+            new_cur = [int(last_stamp), str(last_ev.id)]
+            if not prev_cur or (new_cur[0], new_cur[1]) > (int(prev_cur[0]), str(prev_cur[1])):
+                st["cursors"][url] = new_cur
+        if covered_since is not None:
+            prev_cov = st["covered_since"].get(url)
+            if prev_cov is None or int(covered_since) < int(prev_cov):
+                st["covered_since"][url] = int(covered_since)
+        if rows or covered_since is not None:
+            self._save_rest_ack_state()
+        return added_acks
+
     async def _unwrap_inbox_via_rest(
         self,
         since: int,
         relay: FanOutRelayClient | RelayClient | None = None,
     ) -> list[Event] | None:
-        """Fast incremental inbox fetch via REST `/v1/inbox` filtered by server reception time `first_seen`.
+        """Fast incremental inbox fetch via REST `/v1/inbox` filtered by server reception time `first_seen`
+        with a persistent per-relay cursor (`ack-cursors.json`).
 
-        Unlike WebSocket `REQ` (which filters by NIP-59 jittered `created_at` and therefore must
-        download 24+ hours of Gift-Wrap envelopes on every ACK poll), `/v1/inbox` filters by the
-        relay's reception timestamp `first_seen >= since - 120`, transferring only the 1-2 newly
-        arrived envelopes (~4 KB instead of ~1.8 MB). Returns `None` if no relay supports `/v1/inbox`
-        so callers fall back seamlessly to WebSocket `_unwrap_inbox`.
+        Each envelope on a relay is downloaded and decrypted at most ONCE: subsequent polls (both
+        1-second `deliver_with_ack` checks and 7-day `recheck_due` background checks) resume from
+        `cursors[url] = (last_first_seen, last_event_id)` instead of re-downloading old messages.
         """
         import os
         if "PYTEST_CURRENT_TEST" in os.environ:
@@ -1738,40 +1846,52 @@ class Agent:
             return None
         from .inbox_receiver import InboxHistory
         after_ts = max(0, int(since) - 120)
+        st = self._load_rest_ack_state()
 
-        async def _fetch_one(u: str) -> list[Event] | None:
+        async def _fetch_one(u: str) -> bool:
             try:
                 hist = InboxHistory(u, self.pubkey, limit=250, timeout=2.5)
-                rows = await hist.page((after_ts, ""))
-                return [ev for _, ev in rows]
+                prev_cur = st["cursors"].get(u)
+                prev_cov = st["covered_since"].get(u)
+                if (
+                    isinstance(prev_cur, (list, tuple))
+                    and len(prev_cur) == 2
+                    and prev_cov is not None
+                    and int(prev_cov) <= after_ts
+                ):
+                    cur = (int(prev_cur[0]), str(prev_cur[1]))
+                    cov = int(prev_cov)
+                elif (
+                    isinstance(prev_cur, (list, tuple))
+                    and len(prev_cur) == 2
+                    and int(prev_cur[0]) >= after_ts
+                    and (after_ts >= int(time.time()) - 600)
+                ):
+                    cur = (int(prev_cur[0]), str(prev_cur[1]))
+                    cov = min(after_ts, int(prev_cov) if prev_cov is not None else after_ts)
+                else:
+                    cur = (after_ts, "")
+                    cov = after_ts
+                for _ in range(10):
+                    rows = await hist.page(cur)
+                    if not rows:
+                        self._ingest_rest_inbox_rows(u, [], covered_since=cov)
+                        break
+                    self._ingest_rest_inbox_rows(u, rows, covered_since=cov)
+                    cur = (int(rows[-1][0]), str(rows[-1][1].id))
+                    if len(rows) < 250:
+                        break
+                return True
             except Exception:
-                return None
+                return False
 
         results = await asyncio.gather(*(_fetch_one(u) for u in urls))
-        valid_batches = [b for b in results if b is not None]
-        if not valid_batches:
+        if not any(results):
             return None
-        wraps = list({gw.id: gw for batch in valid_batches for gw in batch if gw.kind == giftwrap.KIND_GIFT_WRAP}.values())
-        cache = getattr(self, "_unwrapped_cache", None)
-        if cache is None:
-            cache = {}
-            self._unwrapped_cache = cache
         inners: list[Event] = []
-        for gw in wraps:
-            if gw.id in cache:
-                cached = cache[gw.id]
-                if cached is not None:
-                    inners.append(cached)
-                continue
-            try:
-                inner = giftwrap.unwrap(gw, self.keys)
-            except giftwrap.GiftWrapError:
-                cache[gw.id] = None
-                continue
-            if len(cache) >= 4096:
-                cache.pop(next(iter(cache)))
-            cache[gw.id] = inner
-            inners.append(inner)
+        for raw_ev in (st.get("acks") or {}).values():
+            with contextlib.suppress(Exception):
+                inners.append(Event(**raw_ev))
         return inners
 
     async def _get_wrapped_acks(
@@ -1812,6 +1932,7 @@ class Agent:
     async def _publish_attempt(self, to_pubkey: str, content: str, delivery_id: str, *,
                                private: bool, extra_relays: list,
                                keep_envelope: bool,
+                               expires_in: int | None = None,
                                conversation_id: str | None = None,
                                reply_to: tuple[str, ...] | None = None) -> tuple[str, Event | None]:
         """Publish one attempt of a reliable delivery.
@@ -1825,6 +1946,7 @@ class Agent:
             if remote_only:
                 inner, outer, _ = self.prepare_private_message(
                     to_pubkey, content, delivery_id=delivery_id, wrap=True,
+                    expires_in=expires_in,
                     conversation_id=conversation_id, reply_to=reply_to)
                 await self._broadcast(outer)
                 await self.publish_to_relays(outer, remote_only, timeout=3.0)  # best-effort
@@ -1834,13 +1956,15 @@ class Agent:
                 # envelope: the journal stores it for an identical resend.
                 inner, outer, _ = self.prepare_private_message(
                     to_pubkey, content, delivery_id=delivery_id, wrap=True,
+                    expires_in=expires_in,
                     conversation_id=conversation_id, reply_to=reply_to)
                 await self._broadcast(outer)
                 return inner.id, outer
             return await self.send_private_message(
                 to_pubkey, content, delivery_id=delivery_id, wrap=True,
+                expires_in=expires_in,
                 conversation_id=conversation_id, reply_to=reply_to), None
-        ev = self._build_private_message(to_pubkey, content, delivery_id)
+        ev = self._build_private_message(to_pubkey, content, delivery_id, expires_in=expires_in)
         await self._publish(ev)
         remote_only = [u for u in extra_relays if u not in self._own_relays]
         if remote_only:
@@ -1852,6 +1976,7 @@ class Agent:
                                poll_interval: float = 1.0,
                                resolve_recipient_relays: bool = False,
                                private: bool = False, outbox=None,
+                               expires_in: int | None = None,
                                conversation_id: str | None = None,
                                reply_to: tuple[str, ...] | None = None) -> dict:
         """Reliably deliver an encrypted message and wait for its recipient ACK.
@@ -1966,6 +2091,7 @@ class Agent:
                     new_id, sent = await self._publish_attempt(
                         to_pubkey, content, delivery_id, private=private,
                         extra_relays=extra_relays, keep_envelope=outbox is not None,
+                        expires_in=expires_in,
                         conversation_id=conversation_id, reply_to=reply_to)
                 except RelayError as error:
                     if not published:

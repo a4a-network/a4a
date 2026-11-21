@@ -305,6 +305,9 @@ class InboxReceiver:
             rows = await history.page(cursor)
             if not rows:
                 return added, False
+            if hasattr(self.agent, "_ingest_rest_inbox_rows"):
+                with contextlib.suppress(Exception):
+                    self.agent._ingest_rest_inbox_rows(url, rows)
             peers = self._policy_senders()
             if self.inband_authorizer is not None:
                 for _, event in rows:
